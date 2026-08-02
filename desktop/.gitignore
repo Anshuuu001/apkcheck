@@ -25,3 +25,6 @@ dist-ssr
 
 # Backups & nested Git backup directories
 .git.bak/
+
+# Environment configurations
+.env

@@ -6,6 +6,9 @@ import type { IDatabase } from './database';
 import { ProjectManager } from './projectManager';
 import { CodeGenerator } from '../generator/ProjectGenerator';
 import { IntelligenceEngine } from './intelligence';
+import { AIOrchestrator } from '../ai/llm/AIOrchestrator';
+
+const orchestrator = new AIOrchestrator();
 
 let mainWindow: BrowserWindow | null = null;
 let database: IDatabase | null = null;
@@ -510,6 +513,15 @@ function setupIpcHandlers() {
 
   ipcMain.handle('projects:call-ai', async (_event, prompt: string) => {
     try {
+      // 1. Try environment variables / .env config via unified AIOrchestrator first!
+      try {
+        const response = await orchestrator.callAI(prompt, 'core');
+        if (response) return response;
+      } catch (err) {
+        console.warn('[main.ts] AIOrchestrator call failed, checking settings overrides:', err);
+      }
+
+      // 2. Fallback to settings overrides if set in database
       let apiKeyGemini = '';
       let apiKeyOpenAI = '';
       let aiProvider = 'local';

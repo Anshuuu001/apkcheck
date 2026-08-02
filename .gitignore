@@ -47,3 +47,7 @@ projects/*.db
 # Backups & Git Backup directories
 .git.bak/
 desktop/.git.bak/
+
+# Environment configurations
+.env
+desktop/.env

@@ -5570,7 +5570,235 @@ Respond with a JSON object conforming exactly to this structure:
   }
 };
 
+// src/ai/llm/LLMProvider.ts
+var LLMProvider = class {
+};
+
+// src/ai/llm/OpenAIProvider.ts
+var OpenAIProvider = class extends LLMProvider {
+  name = "OpenAI";
+  apiKey = "";
+  model = "gpt-4o";
+  initialize(apiKey, modelName) {
+    this.apiKey = apiKey;
+    if (modelName) this.model = modelName;
+  }
+  async generate(prompt, options) {
+    if (!this.apiKey) {
+      throw new Error("OpenAI API Key is not initialized. Please set it in .env");
+    }
+    const headers = {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${this.apiKey}`
+    };
+    const body = {
+      model: this.model,
+      messages: [{ role: "user", content: prompt }],
+      temperature: options?.temperature ?? 0.7
+    };
+    if (options?.maxTokens) {
+      body.max_tokens = options.maxTokens;
+    }
+    if (options?.responseFormat === "json") {
+      body.response_format = { type: "json_object" };
+    }
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers,
+      body: JSON.stringify(body)
+    });
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`OpenAI API error (${response.status}): ${errText}`);
+    }
+    const data = await response.json();
+    return data.choices?.[0]?.message?.content || "";
+  }
+};
+
+// src/ai/llm/GeminiProvider.ts
+var GeminiProvider = class extends LLMProvider {
+  name = "Gemini";
+  apiKey = "";
+  model = "gemini-2.5-pro";
+  initialize(apiKey, modelName) {
+    this.apiKey = apiKey;
+    if (modelName) this.model = modelName;
+  }
+  async generate(prompt, options) {
+    if (!this.apiKey) {
+      throw new Error("Gemini API Key is not initialized. Please set GEMINI_API_KEY in .env");
+    }
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent?key=${this.apiKey}`;
+    const headers = { "Content-Type": "application/json" };
+    const body = {
+      contents: [{
+        parts: [{ text: prompt }]
+      }],
+      generationConfig: {
+        temperature: options?.temperature ?? 0.7
+      }
+    };
+    if (options?.maxTokens) {
+      body.generationConfig.maxOutputTokens = options.maxTokens;
+    }
+    if (options?.responseFormat === "json") {
+      body.generationConfig.responseMimeType = "application/json";
+    }
+    const response = await fetch(url, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(body)
+    });
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`Gemini API error (${response.status}): ${errText}`);
+    }
+    const data = await response.json();
+    return data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+  }
+};
+
+// src/ai/llm/TokenManager.ts
+var TokenManager = class {
+  static totalInputTokens = 0;
+  static totalOutputTokens = 0;
+  /**
+   * Approximates token count based on character length (standard 4 chars per token)
+   */
+  static estimateTokens(text) {
+    if (!text) return 0;
+    return Math.ceil(text.length / 4);
+  }
+  static recordUsage(input, output) {
+    const inTokens = this.estimateTokens(input);
+    const outTokens = this.estimateTokens(output);
+    this.totalInputTokens += inTokens;
+    this.totalOutputTokens += outTokens;
+    return { inputTokens: inTokens, outputTokens: outTokens };
+  }
+  static getAccumulatedUsage() {
+    return {
+      inputTokens: this.totalInputTokens,
+      outputTokens: this.totalOutputTokens,
+      totalTokens: this.totalInputTokens + this.totalOutputTokens
+    };
+  }
+  static resetUsage() {
+    this.totalInputTokens = 0;
+    this.totalOutputTokens = 0;
+  }
+};
+
+// src/ai/llm/PromptExecutor.ts
+var PromptExecutor = class {
+  constructor(provider) {
+    this.provider = provider;
+  }
+  provider;
+  async execute(prompt, options) {
+    try {
+      const result = await this.provider.generate(prompt, options);
+      TokenManager.recordUsage(prompt, result);
+      return result;
+    } catch (e) {
+      console.error(`[PromptExecutor] Error executing prompt on provider ${this.provider.name}:`, e);
+      throw e;
+    }
+  }
+};
+
+// src/ai/llm/AIOrchestrator.ts
+var fs4 = __toESM(require("fs"));
+var path4 = __toESM(require("path"));
+function loadEnv() {
+  const possiblePaths = [
+    path4.join(__dirname, ".env"),
+    path4.join(__dirname, "../.env"),
+    path4.join(__dirname, "../../.env"),
+    path4.join(__dirname, "../../../.env"),
+    path4.join(__dirname, "../../../../.env"),
+    path4.join(process.cwd(), ".env"),
+    path4.join(process.cwd(), "desktop", ".env")
+  ];
+  for (const envPath of possiblePaths) {
+    if (fs4.existsSync(envPath)) {
+      try {
+        const content = fs4.readFileSync(envPath, "utf8");
+        content.split("\n").forEach((line) => {
+          const trimmed = line.trim();
+          if (!trimmed || trimmed.startsWith("#")) return;
+          const parts = trimmed.split("=");
+          const key = parts[0].trim();
+          const val = parts.slice(1).join("=").trim().replace(/^['"]|['"]$/g, "");
+          if (key) {
+            process.env[key] = val;
+          }
+        });
+        console.log(`[AIOrchestrator] Environment variables loaded from: ${envPath}`);
+        break;
+      } catch (err) {
+        console.warn(`[AIOrchestrator] Error loading env from ${envPath}:`, err);
+      }
+    }
+  }
+}
+loadEnv();
+var AIOrchestrator = class {
+  openai;
+  gemini;
+  openaiExecutor;
+  geminiExecutor;
+  constructor() {
+    this.openai = new OpenAIProvider();
+    this.gemini = new GeminiProvider();
+    const openaiKey = process.env.OPENAI_API_KEY || "";
+    const geminiKey = process.env.GEMINI_API_KEY || "";
+    const openaiModel = process.env.OPENAI_MODEL || "gpt-4o";
+    const geminiModel = process.env.GEMINI_MODEL || "gemini-2.5-pro";
+    this.openai.initialize(openaiKey, openaiModel);
+    this.gemini.initialize(geminiKey, geminiModel);
+    this.openaiExecutor = new PromptExecutor(this.openai);
+    this.geminiExecutor = new PromptExecutor(this.gemini);
+  }
+  /**
+   * Orchestrates the call to the appropriate LLM provider.
+   * If taskType is 'ui-suggestion' and Gemini is available, uses Gemini.
+   * Otherwise, defaults to OpenAI with a fallback to Gemini if OpenAI fails.
+   */
+  async callAI(prompt, taskType = "core", options) {
+    const isGeminiAvailable = !!process.env.GEMINI_API_KEY;
+    const isOpenAIAvailable = !!process.env.OPENAI_API_KEY;
+    if (taskType === "ui-suggestion" && isGeminiAvailable) {
+      try {
+        console.log("[AIOrchestrator] Routing UI/UX suggestion request to Gemini");
+        return await this.geminiExecutor.execute(prompt, options);
+      } catch (e) {
+        console.warn("[AIOrchestrator] Gemini UI suggestion execution failed, falling back to OpenAI:", e);
+      }
+    }
+    if (isOpenAIAvailable) {
+      try {
+        console.log("[AIOrchestrator] Routing core task to OpenAI");
+        return await this.openaiExecutor.execute(prompt, options);
+      } catch (e) {
+        if (isGeminiAvailable) {
+          console.warn("[AIOrchestrator] OpenAI core execution failed! Falling back to Gemini:", e);
+          return await this.geminiExecutor.execute(prompt, options);
+        }
+        throw e;
+      }
+    }
+    if (isGeminiAvailable) {
+      console.log("[AIOrchestrator] OpenAI key missing, executing on Gemini Fallback");
+      return await this.geminiExecutor.execute(prompt, options);
+    }
+    throw new Error("No AI Providers configured. Please set OPENAI_API_KEY or GEMINI_API_KEY in .env");
+  }
+};
+
 // src/main/main.ts
+var orchestrator = new AIOrchestrator();
 var mainWindow = null;
 var database = null;
 var projectManager = null;
@@ -5981,6 +6209,12 @@ function setupIpcHandlers() {
   });
   import_electron.ipcMain.handle("projects:call-ai", async (_event, prompt) => {
     try {
+      try {
+        const response = await orchestrator.callAI(prompt, "core");
+        if (response) return response;
+      } catch (err) {
+        console.warn("[main.ts] AIOrchestrator call failed, checking settings overrides:", err);
+      }
       let apiKeyGemini = "";
       let apiKeyOpenAI = "";
       let aiProvider = "local";
