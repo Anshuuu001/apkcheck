@@ -5716,7 +5716,15 @@ var JsonLearningDatabase = class {
   data;
   constructor(dir) {
     this.filePath = import_path4.default.join(dir, "learning_fallback.json");
-    this.data = { prompt_history: [], mistakes: [], corrections: [], skills: {}, experience_logs: [] };
+    this.data = {
+      prompt_history: [],
+      mistakes: [],
+      corrections: [],
+      skills: {},
+      experience_logs: [],
+      blueprint_versions: [],
+      build_memory: []
+    };
     this.load();
   }
   load() {
@@ -5729,6 +5737,8 @@ var JsonLearningDatabase = class {
         if (!this.data.corrections) this.data.corrections = [];
         if (!this.data.skills) this.data.skills = {};
         if (!this.data.experience_logs) this.data.experience_logs = [];
+        if (!this.data.blueprint_versions) this.data.blueprint_versions = [];
+        if (!this.data.build_memory) this.data.build_memory = [];
       } catch (e) {
         console.warn("[JsonLearningDatabase] Error loading fallback file:", e);
       }
@@ -5754,12 +5764,10 @@ var JsonLearningDatabase = class {
     return this.data.prompt_history.length;
   }
   getAverageConfidence(domain) {
-    const matches = this.data.prompt_history.filter(
-      (h) => h.user_prompt.toLowerCase().includes(domain.toLowerCase())
-    );
-    if (matches.length === 0) return 0;
-    const sum = matches.reduce((acc, h) => acc + h.confidence, 0);
-    return sum / matches.length;
+    const records = this.data.prompt_history.filter((r) => r.user_prompt.toLowerCase().includes(domain.toLowerCase()));
+    if (records.length === 0) return 0;
+    const sum = records.reduce((acc, r) => acc + r.confidence, 0);
+    return sum / records.length;
   }
   recordXP(points, reason) {
     this.data.experience_logs.push({
@@ -5770,24 +5778,60 @@ var JsonLearningDatabase = class {
     this.save();
   }
   upgradeSkill(skillName, xpEarned) {
-    if (!this.data.skills[skillName]) {
-      this.data.skills[skillName] = { level: 1, xp_points: 0 };
+    let skill = this.data.skills[skillName];
+    if (!skill) {
+      skill = { level: 1, xp_points: 0 };
     }
-    const skill = this.data.skills[skillName];
-    skill.xp_points += xpEarned;
-    const newLevel = Math.max(1, Math.floor(skill.xp_points / 100) + 1);
-    if (newLevel > skill.level) {
-      skill.level = newLevel;
-    }
+    const nextXp = skill.xp_points + xpEarned;
+    const nextLevel = Math.max(1, Math.floor(nextXp / 100) + 1);
+    this.data.skills[skillName] = { level: nextLevel, xp_points: nextXp };
     this.save();
-    return { level: skill.level, totalXp: skill.xp_points };
+    return { level: nextLevel, totalXp: nextXp };
   }
   getSkillLevels() {
     const res = {};
-    Object.keys(this.data.skills).forEach((k) => {
-      res[k] = this.data.skills[k].level;
+    Object.keys(this.data.skills).forEach((key) => {
+      res[key] = this.data.skills[key].level;
     });
     return res;
+  }
+  saveBlueprintVersion(projectId, version, blueprintJson, description) {
+    this.data.blueprint_versions.push({
+      id: this.data.blueprint_versions.length + 1,
+      project_id: projectId,
+      version,
+      blueprint_json: blueprintJson,
+      description,
+      created_at: (/* @__PURE__ */ new Date()).toISOString()
+    });
+    this.save();
+  }
+  getBlueprintVersions(projectId) {
+    return this.data.blueprint_versions.filter((v) => v.project_id === projectId);
+  }
+  rollbackBlueprint(versionId) {
+    const match = this.data.blueprint_versions.find((v) => v.id === versionId);
+    return match ? match.blueprint_json : null;
+  }
+  logBuildError(errorSignature, appliedFix) {
+    const existing = this.data.build_memory.find((b) => b.error_signature.toLowerCase() === errorSignature.toLowerCase());
+    if (existing) {
+      existing.applied_fix = appliedFix;
+      existing.success_count += 1;
+    } else {
+      this.data.build_memory.push({
+        id: this.data.build_memory.length + 1,
+        error_signature: errorSignature,
+        applied_fix: appliedFix,
+        success_count: 1,
+        created_at: (/* @__PURE__ */ new Date()).toISOString()
+      });
+    }
+    this.save();
+  }
+  findBuildFix(errorSignature) {
+    const match = this.data.build_memory.find((b) => errorSignature.toLowerCase().includes(b.error_signature.toLowerCase()));
+    return match ? match.applied_fix : null;
   }
 };
 var SqliteLearningDatabase = class {
@@ -5795,13 +5839,13 @@ var SqliteLearningDatabase = class {
   constructor(dbPath) {
     const Database = require("better-sqlite3");
     this.db = new Database(dbPath);
-    this.initSchema();
+    this.init();
   }
-  initSchema() {
+  init() {
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS prompt_history (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_prompt TEXT NOT NULL,
+        user_prompt TEXT,
         response_data TEXT,
         source_llm TEXT,
         confidence REAL,
@@ -5809,8 +5853,7 @@ var SqliteLearningDatabase = class {
       );
       CREATE TABLE IF NOT EXISTS mistakes (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        project_id INTEGER,
-        module_name TEXT,
+        user_prompt TEXT,
         description TEXT,
         corrected_module_name TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -5833,6 +5876,21 @@ var SqliteLearningDatabase = class {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         xp_earned INTEGER,
         reason TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE TABLE IF NOT EXISTS blueprint_versions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        project_id INTEGER,
+        version TEXT,
+        blueprint_json TEXT,
+        description TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE TABLE IF NOT EXISTS build_memory (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        error_signature TEXT UNIQUE,
+        applied_fix TEXT,
+        success_count INTEGER DEFAULT 1,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
@@ -5880,6 +5938,37 @@ var SqliteLearningDatabase = class {
       res[r.skill_name] = r.level;
     });
     return res;
+  }
+  saveBlueprintVersion(projectId, version, blueprintJson, description) {
+    const stmt = this.db.prepare(`
+      INSERT INTO blueprint_versions (project_id, version, blueprint_json, description)
+      VALUES (?, ?, ?, ?)
+    `);
+    stmt.run(projectId, version, blueprintJson, description);
+  }
+  getBlueprintVersions(projectId) {
+    return this.db.prepare("SELECT * FROM blueprint_versions WHERE project_id = ? ORDER BY id DESC").all(projectId);
+  }
+  rollbackBlueprint(versionId) {
+    const row = this.db.prepare("SELECT blueprint_json FROM blueprint_versions WHERE id = ?").get(versionId);
+    return row ? row.blueprint_json : null;
+  }
+  logBuildError(errorSignature, appliedFix) {
+    const stmt = this.db.prepare(`
+      INSERT INTO build_memory (error_signature, applied_fix, success_count)
+      VALUES (?, ?, 1)
+      ON CONFLICT(error_signature) DO UPDATE SET
+        applied_fix = excluded.applied_fix,
+        success_count = success_count + 1
+    `);
+    stmt.run(errorSignature, appliedFix);
+  }
+  findBuildFix(errorSignature) {
+    const row = this.db.prepare(`
+      SELECT applied_fix FROM build_memory 
+      WHERE ? LIKE '%' || error_signature || '%'
+    `).get(errorSignature);
+    return row ? row.applied_fix : null;
   }
 };
 function initLearningDatabase(projectsDir2) {

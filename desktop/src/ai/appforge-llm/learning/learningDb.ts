@@ -23,6 +23,15 @@ export interface LearningDatabase {
   recordXP(points: number, reason: string): void;
   upgradeSkill(skillName: string, xpEarned: number): { level: number; totalXp: number };
   getSkillLevels(): Record<string, number>;
+
+  // Blueprint Database methods
+  saveBlueprintVersion(projectId: number, version: string, blueprintJson: string, description: string): void;
+  getBlueprintVersions(projectId: number): any[];
+  rollbackBlueprint(versionId: number): string | null;
+
+  // Build Memory methods
+  logBuildError(errorSignature: string, appliedFix: string): void;
+  findBuildFix(errorSignature: string): string | null;
 }
 
 class JsonLearningDatabase implements LearningDatabase {
@@ -33,11 +42,21 @@ class JsonLearningDatabase implements LearningDatabase {
     corrections: any[];
     skills: Record<string, { level: number; xp_points: number }>;
     experience_logs: { points: number; reason: string; created_at: string }[];
+    blueprint_versions: { id: number; project_id: number; version: string; blueprint_json: string; description: string; created_at: string }[];
+    build_memory: { id: number; error_signature: string; applied_fix: string; success_count: number; created_at: string }[];
   };
 
   constructor(dir: string) {
     this.filePath = path.join(dir, 'learning_fallback.json');
-    this.data = { prompt_history: [], mistakes: [], corrections: [], skills: {}, experience_logs: [] };
+    this.data = { 
+      prompt_history: [], 
+      mistakes: [], 
+      corrections: [], 
+      skills: {}, 
+      experience_logs: [],
+      blueprint_versions: [],
+      build_memory: []
+    };
     this.load();
   }
 
@@ -51,6 +70,8 @@ class JsonLearningDatabase implements LearningDatabase {
         if (!this.data.corrections) this.data.corrections = [];
         if (!this.data.skills) this.data.skills = {};
         if (!this.data.experience_logs) this.data.experience_logs = [];
+        if (!this.data.blueprint_versions) this.data.blueprint_versions = [];
+        if (!this.data.build_memory) this.data.build_memory = [];
       } catch (e) {
         console.warn('[JsonLearningDatabase] Error loading fallback file:', e);
       }
@@ -80,12 +101,10 @@ class JsonLearningDatabase implements LearningDatabase {
   }
 
   getAverageConfidence(domain: string): number {
-    const matches = this.data.prompt_history.filter(h => 
-      h.user_prompt.toLowerCase().includes(domain.toLowerCase())
-    );
-    if (matches.length === 0) return 0;
-    const sum = matches.reduce((acc, h) => acc + h.confidence, 0);
-    return sum / matches.length;
+    const records = this.data.prompt_history.filter(r => r.user_prompt.toLowerCase().includes(domain.toLowerCase()));
+    if (records.length === 0) return 0;
+    const sum = records.reduce((acc, r) => acc + r.confidence, 0);
+    return sum / records.length;
   }
 
   recordXP(points: number, reason: string): void {
@@ -98,29 +117,67 @@ class JsonLearningDatabase implements LearningDatabase {
   }
 
   upgradeSkill(skillName: string, xpEarned: number): { level: number; totalXp: number } {
-    if (!this.data.skills[skillName]) {
-      this.data.skills[skillName] = { level: 1, xp_points: 0 };
+    let skill = this.data.skills[skillName];
+    if (!skill) {
+      skill = { level: 1, xp_points: 0 };
     }
+    const nextXp = skill.xp_points + xpEarned;
+    const nextLevel = Math.max(1, Math.floor(nextXp / 100) + 1);
     
-    const skill = this.data.skills[skillName];
-    skill.xp_points += xpEarned;
-    
-    // Skill levels up every 100 XP
-    const newLevel = Math.max(1, Math.floor(skill.xp_points / 100) + 1);
-    if (newLevel > skill.level) {
-      skill.level = newLevel;
-    }
-    
+    this.data.skills[skillName] = { level: nextLevel, xp_points: nextXp };
     this.save();
-    return { level: skill.level, totalXp: skill.xp_points };
+    return { level: nextLevel, totalXp: nextXp };
   }
 
   getSkillLevels(): Record<string, number> {
     const res: Record<string, number> = {};
-    Object.keys(this.data.skills).forEach(k => {
-      res[k] = this.data.skills[k].level;
+    Object.keys(this.data.skills).forEach(key => {
+      res[key] = this.data.skills[key].level;
     });
     return res;
+  }
+
+  saveBlueprintVersion(projectId: number, version: string, blueprintJson: string, description: string): void {
+    this.data.blueprint_versions.push({
+      id: this.data.blueprint_versions.length + 1,
+      project_id: projectId,
+      version,
+      blueprint_json: blueprintJson,
+      description,
+      created_at: new Date().toISOString()
+    });
+    this.save();
+  }
+
+  getBlueprintVersions(projectId: number): any[] {
+    return this.data.blueprint_versions.filter(v => v.project_id === projectId);
+  }
+
+  rollbackBlueprint(versionId: number): string | null {
+    const match = this.data.blueprint_versions.find(v => v.id === versionId);
+    return match ? match.blueprint_json : null;
+  }
+
+  logBuildError(errorSignature: string, appliedFix: string): void {
+    const existing = this.data.build_memory.find(b => b.error_signature.toLowerCase() === errorSignature.toLowerCase());
+    if (existing) {
+      existing.applied_fix = appliedFix;
+      existing.success_count += 1;
+    } else {
+      this.data.build_memory.push({
+        id: this.data.build_memory.length + 1,
+        error_signature: errorSignature,
+        applied_fix: appliedFix,
+        success_count: 1,
+        created_at: new Date().toISOString()
+      });
+    }
+    this.save();
+  }
+
+  findBuildFix(errorSignature: string): string | null {
+    const match = this.data.build_memory.find(b => errorSignature.toLowerCase().includes(b.error_signature.toLowerCase()));
+    return match ? match.applied_fix : null;
   }
 }
 
@@ -130,14 +187,14 @@ class SqliteLearningDatabase implements LearningDatabase {
   constructor(dbPath: string) {
     const Database = require('better-sqlite3');
     this.db = new Database(dbPath);
-    this.initSchema();
+    this.init();
   }
 
-  private initSchema() {
+  private init() {
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS prompt_history (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_prompt TEXT NOT NULL,
+        user_prompt TEXT,
         response_data TEXT,
         source_llm TEXT,
         confidence REAL,
@@ -145,8 +202,7 @@ class SqliteLearningDatabase implements LearningDatabase {
       );
       CREATE TABLE IF NOT EXISTS mistakes (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        project_id INTEGER,
-        module_name TEXT,
+        user_prompt TEXT,
         description TEXT,
         corrected_module_name TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -169,6 +225,21 @@ class SqliteLearningDatabase implements LearningDatabase {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         xp_earned INTEGER,
         reason TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE TABLE IF NOT EXISTS blueprint_versions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        project_id INTEGER,
+        version TEXT,
+        blueprint_json TEXT,
+        description TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE TABLE IF NOT EXISTS build_memory (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        error_signature TEXT UNIQUE,
+        applied_fix TEXT,
+        success_count INTEGER DEFAULT 1,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
@@ -201,7 +272,6 @@ class SqliteLearningDatabase implements LearningDatabase {
   }
 
   upgradeSkill(skillName: string, xpEarned: number): { level: number; totalXp: number } {
-    // Check if skill exists
     const getSkill = this.db.prepare('SELECT level, xp_points FROM ai_skills WHERE skill_name = ?');
     let skill = getSkill.get(skillName);
     
@@ -227,6 +297,42 @@ class SqliteLearningDatabase implements LearningDatabase {
       res[r.skill_name] = r.level;
     });
     return res;
+  }
+
+  saveBlueprintVersion(projectId: number, version: string, blueprintJson: string, description: string): void {
+    const stmt = this.db.prepare(`
+      INSERT INTO blueprint_versions (project_id, version, blueprint_json, description)
+      VALUES (?, ?, ?, ?)
+    `);
+    stmt.run(projectId, version, blueprintJson, description);
+  }
+
+  getBlueprintVersions(projectId: number): any[] {
+    return this.db.prepare('SELECT * FROM blueprint_versions WHERE project_id = ? ORDER BY id DESC').all(projectId);
+  }
+
+  rollbackBlueprint(versionId: number): string | null {
+    const row = this.db.prepare('SELECT blueprint_json FROM blueprint_versions WHERE id = ?').get(versionId);
+    return row ? row.blueprint_json : null;
+  }
+
+  logBuildError(errorSignature: string, appliedFix: string): void {
+    const stmt = this.db.prepare(`
+      INSERT INTO build_memory (error_signature, applied_fix, success_count)
+      VALUES (?, ?, 1)
+      ON CONFLICT(error_signature) DO UPDATE SET
+        applied_fix = excluded.applied_fix,
+        success_count = success_count + 1
+    `);
+    stmt.run(errorSignature, appliedFix);
+  }
+
+  findBuildFix(errorSignature: string): string | null {
+    const row = this.db.prepare(`
+      SELECT applied_fix FROM build_memory 
+      WHERE ? LIKE '%' || error_signature || '%'
+    `).get(errorSignature);
+    return row ? row.applied_fix : null;
   }
 }
 
