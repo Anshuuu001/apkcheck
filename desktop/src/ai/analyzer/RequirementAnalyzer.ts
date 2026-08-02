@@ -7,6 +7,24 @@ export interface RequirementAnalysisResult {
   missingFeatures: string[];
 }
 
+const MODULE_SYNONYMS: Record<string, string[]> = {
+  'Doctor': ['doctor', 'doc', 'dr', 'physician', 'clinician'],
+  'Patient': ['patient', 'sick', 'bimar', 'client', 'customer', 'user'],
+  'Appointment': ['appointment', 'booking', 'slot', 'milna', 'meet', 'appointments'],
+  'Admin': ['admin', 'manager', 'owner', 'control', 'superadmin'],
+  'Customer': ['customer', 'buyer', 'user', 'client', 'grahak'],
+  'Restaurant': ['restaurant', 'hotel', 'kitchen', 'cafe', 'dhaba'],
+  'Delivery Partner': ['delivery', 'driver', 'agent', 'courier', 'rider'],
+  'Product Catalog': ['product', 'item', 'catalog', 'samaan', 'list', 'products'],
+  'Shopping Cart': ['cart', 'basket', 'bag', 'trolley'],
+  'Checkout': ['checkout', 'pay', 'billing', 'buy', 'purchase'],
+  'Student': ['student', 'pupil', 'bacha', 'classmate'],
+  'Teacher': ['teacher', 'guru', 'tutor', 'instructor'],
+  'Classroom': ['classroom', 'class', 'lectures'],
+  'Transaction': ['transaction', 'transfer', 'send', 'money', 'paisa'],
+  'Account': ['account', 'khata', 'profile']
+};
+
 export class RequirementAnalyzer {
   analyze(idea: string, industry: string): RequirementAnalysisResult {
     const lowerIdea = idea.toLowerCase();
@@ -17,20 +35,24 @@ export class RequirementAnalyzer {
 
     const detectedFeatures: string[] = [];
 
+    const checkMatch = (feat: string): boolean => {
+      const kw = feat.toLowerCase();
+      if (lowerIdea.includes(kw) || lowerIdea.includes(kw + 's')) return true;
+      
+      const synonyms = MODULE_SYNONYMS[feat] || [];
+      return synonyms.some(syn => lowerIdea.includes(syn));
+    };
+
     // Check which standard required modules are present in the idea
     required.forEach(feat => {
-      const kw = feat.toLowerCase();
-      if (lowerIdea.includes(kw) || 
-          lowerIdea.includes(kw + 's') || 
-          (kw === 'admin' && (lowerIdea.includes('manage') || lowerIdea.includes('control') || lowerIdea.includes('admin')))) {
+      if (checkMatch(feat)) {
         detectedFeatures.push(feat);
       }
     });
 
     // Check optional modules
     optional.forEach(feat => {
-      const kw = feat.toLowerCase();
-      if (lowerIdea.includes(kw) || lowerIdea.includes(kw + 's')) {
+      if (checkMatch(feat)) {
         detectedFeatures.push(feat);
       }
     });
