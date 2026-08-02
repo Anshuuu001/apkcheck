@@ -1,15 +1,10 @@
 {
   "industry": "FoodDelivery",
-  "requiredModules": [
-    "Customer",
-    "Restaurant",
-    "Delivery Partner",
-    "Admin"
-  ],
-  "optionalModules": [
-    "Wallet",
-    "Coupons",
-    "Order History",
-    "Live Tracking"
-  ]
+  "roles": ["Customer", "RestaurantOwner", "DeliveryPartner", "Admin"],
+  "screens": ["RestaurantBrowse", "MenuSelection", "CartDetails", "OrderTracking", "EarningsPanel"],
+  "entities": ["users", "restaurants", "menu_items", "orders", "order_items", "delivery_tracking"],
+  "apis": ["/auth/login", "/restaurants", "/restaurants/{id}/menu", "/orders", "/delivery/track"],
+  "businessRules": ["Orders require payment clearance before kitchen prep", "Delivery route assigns to closest online rider"],
+  "navigation": ["BottomTabs", "DrawerNavigation"],
+  "recommendedFeatures": ["LiveGPSTracking", "MultiVendorSupport", "PromoCoupons"]
 }

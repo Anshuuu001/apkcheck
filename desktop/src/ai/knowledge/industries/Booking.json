@@ -1,15 +1,10 @@
 {
   "industry": "Booking",
-  "requiredModules": [
-    "User",
-    "Provider",
-    "Slot Booking",
-    "Admin"
-  ],
-  "optionalModules": [
-    "Review",
-    "Multi-Location",
-    "SMS Alerts",
-    "Waiting List"
-  ]
+  "roles": ["Customer", "Vendor", "Admin"],
+  "screens": ["ServiceBrowse", "SlotScheduler", "OrderSummary", "ReviewList"],
+  "entities": ["users", "services", "slots", "bookings", "payments"],
+  "apis": ["/auth/login", "/services", "/slots", "/bookings"],
+  "businessRules": ["Bookings lock scheduler slots upon stripe checkout", "Cancellation is permitted 24h prior"],
+  "navigation": ["BottomTabs"],
+  "recommendedFeatures": ["CalendarSync", "StripeCheckoutPage"]
 }

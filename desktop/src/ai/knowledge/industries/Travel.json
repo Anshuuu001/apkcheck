@@ -1,15 +1,10 @@
 {
   "industry": "Travel",
-  "requiredModules": [
-    "Traveler",
-    "Booking",
-    "Itinerary",
-    "Admin"
-  ],
-  "optionalModules": [
-    "Hotel Booking",
-    "Flight Booking",
-    "Guide Directory",
-    "Reviews"
-  ]
+  "roles": ["Traveler", "Guide", "Admin"],
+  "screens": ["TripPlanner", "ItineraryDetails", "BookingPortal", "ReviewBoards"],
+  "entities": ["users", "trips", "bookings", "locations", "reviews"],
+  "apis": ["/auth/login", "/trips", "/bookings", "/reviews"],
+  "businessRules": ["Bookings lock itinerary slots", "Only completed travelers review Guides"],
+  "navigation": ["StackNavigation"],
+  "recommendedFeatures": ["OfflineMapCached", "TripPlannerAI"]
 }

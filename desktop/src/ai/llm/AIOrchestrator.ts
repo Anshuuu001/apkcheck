@@ -3,8 +3,9 @@ import { GeminiProvider } from './GeminiProvider';
 import { PromptExecutor } from './PromptExecutor';
 import type { LLMRequestOptions } from './LLMProvider';
 import { initLearningDatabase, type LearningDatabase } from '../appforge-llm/learning/learningDb';
-import { DecisionEngine } from '../appforge-llm/core/DecisionEngine';
+import { Brain } from '../appforge-llm/core/Brain';
 import { LearningManager } from '../appforge-llm/learning/LearningManager';
+import { ResponseEngine } from '../appforge-llm/core/ResponseEngine';
 import { PromptCache } from '../cache/PromptCache';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -63,7 +64,6 @@ export class AIOrchestrator {
 
   // AppForge LLM components
   private learningDb: LearningDatabase;
-  private decisionEngine: DecisionEngine;
   private learningManager: LearningManager;
 
   constructor() {
@@ -83,13 +83,13 @@ export class AIOrchestrator {
 
     // Instantiate local AppForge LLM self-improving engines
     this.learningDb = initLearningDatabase(learningDbDir);
-    this.decisionEngine = new DecisionEngine();
     this.learningManager = new LearningManager(this.learningDb);
   }
 
   /**
    * Routes prompt queries first through local AppForge LLM evaluation.
-   * If local confidence is high (>95%), answers directly from local expert systems.
+   * If local confidence is high (>=90%), answers directly from local expert systems.
+   * If confidence is 70-89%, returns clarifying questions.
    * Otherwise, makes external API calls and runs the self-learning training loops.
    */
   async callAI(prompt: string, taskType: 'core' | 'ui-suggestion' = 'core', options?: LLMRequestOptions): Promise<string> {
@@ -102,19 +102,21 @@ export class AIOrchestrator {
       }
     }
 
-    // 2. Evaluate prompt using AppForge LLM core
+    // Guess industry based on prompt keywords
     const promptLower = prompt.toLowerCase();
     let guessedIndustry = 'Custom';
     if (promptLower.includes('hospital') || promptLower.includes('doctor')) guessedIndustry = 'Hospital';
     else if (promptLower.includes('food') || promptLower.includes('delivery')) guessedIndustry = 'FoodDelivery';
     else if (promptLower.includes('shop') || promptLower.includes('ecommerce')) guessedIndustry = 'Ecommerce';
 
-    const decision = this.decisionEngine.evaluate(prompt, guessedIndustry, this.learningDb);
-    console.log(`[AppForge LLM] Self confidence rating: ${Math.round(decision.confidence * 100)}% -> Action: ${decision.action}`);
+    // 2. Evaluate prompt using AppForge LLM core Brain
+    const brain = new Brain(this.learningDb);
+    const result = await brain.processRequest(prompt, guessedIndustry);
+    console.log(`[AppForge LLM] Self confidence rating: ${Math.round(result.confidence * 100)}% -> Action: ${result.decision}`);
 
-    // Rule: Confidence >95% -> Local Resolution (No external API Call!)
-    if (decision.action === 'LOCAL' && taskType === 'core') {
-      console.log('[AppForge LLM] Confidence is high (>95%). Bypassing external API and serving local expert blueprint!');
+    // Gate 1: Confidence >=90% -> Local Resolution (No external API Call!)
+    if (result.decision === 'LOCAL' && taskType === 'core') {
+      console.log('[AppForge LLM] Confidence is high (>=90%). Bypassing external API and serving local expert blueprint!');
       if (guessedIndustry === 'Hospital') {
         const localResponse = JSON.stringify([
           {
@@ -136,7 +138,15 @@ export class AIOrchestrator {
       }
     }
 
-    // Optional or Required external API execution
+    // Gate 2: Confidence 70-89% -> Ask Clarifying Questions (No external API Call!)
+    if (result.decision === 'QUESTIONS' && taskType === 'core') {
+      console.log('[AppForge LLM] Confidence is moderate (70-89%). Triggering clarifying questions interview!');
+      const questionsResponse = ResponseEngine.format(result.questions);
+      PromptCache.set(prompt, questionsResponse);
+      return questionsResponse;
+    }
+
+    // Gate 3: Confidence <70% -> External API execution
     const apiResult = await this.callExternalLLM(prompt, taskType, options);
 
     // Cache the API result to avoid redundant calls
@@ -144,10 +154,10 @@ export class AIOrchestrator {
       PromptCache.set(prompt, apiResult);
     }
 
-    // Rule: Confidence <80% -> Learn and Save updates to local learning database!
-    if (decision.action === 'API' && taskType === 'core') {
+    // Self-learning comparison loops
+    if (result.decision === 'API' && taskType === 'core') {
       try {
-        console.log('[AppForge LLM] Confidence score was low (<80%). Running dynamic comparison and self-improving training update...');
+        console.log('[AppForge LLM] Confidence score was low (<70%). Running dynamic comparison and self-improving training update...');
         const localTemplateMock = JSON.stringify({ industry: guessedIndustry, modules: [] });
         await this.learningManager.compareAndLearn(prompt, localTemplateMock, apiResult);
       } catch (err) {

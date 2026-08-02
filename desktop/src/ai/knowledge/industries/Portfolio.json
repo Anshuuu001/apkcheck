@@ -1,15 +1,10 @@
 {
   "industry": "Portfolio",
-  "requiredModules": [
-    "Owner",
-    "Project Show",
-    "Resume",
-    "Admin"
-  ],
-  "optionalModules": [
-    "Contact Form",
-    "Blog",
-    "Testimonials",
-    "Analytics"
-  ]
+  "roles": ["Visitor", "Owner", "Admin"],
+  "screens": ["ProjectShowcase", "SkillGrid", "ResumeTimeline", "ContactForm"],
+  "entities": ["users", "projects", "skills", "messages", "profile"],
+  "apis": ["/auth/login", "/projects", "/messages"],
+  "businessRules": ["Visitors send contact messages", "Owner updates ResumeTimeline details"],
+  "navigation": ["StackNavigation"],
+  "recommendedFeatures": ["DynamicBlogEngine", "AnalyticsStats"]
 }

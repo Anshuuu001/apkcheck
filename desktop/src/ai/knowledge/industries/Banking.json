@@ -1,15 +1,10 @@
 {
   "industry": "Banking",
-  "requiredModules": [
-    "Customer",
-    "Account",
-    "Transaction",
-    "Admin"
-  ],
-  "optionalModules": [
-    "Loan",
-    "Investment",
-    "Card Management",
-    "Analytics"
-  ]
+  "roles": ["Customer", "Teller", "Admin"],
+  "screens": ["AccountSummary", "TransactionHistory", "FundTransfer", "LoanApplication"],
+  "entities": ["users", "accounts", "transactions", "loans", "cards"],
+  "apis": ["/auth/login", "/accounts", "/transactions", "/transfers"],
+  "businessRules": ["Transactions require sufficient balance", "Overdraft limit validation"],
+  "navigation": ["TabNavigation"],
+  "recommendedFeatures": ["BiometricAuth", "CardControls"]
 }

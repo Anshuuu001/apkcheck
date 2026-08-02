@@ -1,15 +1,10 @@
 {
   "industry": "School",
-  "requiredModules": [
-    "Student",
-    "Teacher",
-    "Classroom",
-    "Admin"
-  ],
-  "optionalModules": [
-    "Library",
-    "Fee Management",
-    "Transport",
-    "Attendance"
-  ]
+  "roles": ["Student", "Teacher", "Admin", "Parent"],
+  "screens": ["StudentDashboard", "TeacherDashboard", "AttendanceLog", "GradesViewer"],
+  "entities": ["users", "attendance", "grades", "classes", "exams"],
+  "apis": ["/auth/login", "/attendance", "/grades", "/classes"],
+  "businessRules": ["Teachers input grades", "Parents view student statistics"],
+  "navigation": ["BottomTabs"],
+  "recommendedFeatures": ["HomeworkAssigner", "ParentTeacherMessaging"]
 }

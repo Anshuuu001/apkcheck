@@ -2,8 +2,13 @@ import { INDUSTRIES_KNOWLEDGE } from '../../knowledge/industries';
 
 export interface IndustryKnowledge {
   industry: string;
-  requiredModules: string[];
-  optionalModules: string[];
+  roles: string[];
+  screens: string[];
+  entities: string[];
+  apis: string[];
+  businessRules: string[];
+  navigation: string[];
+  recommendedFeatures: string[];
 }
 
 export class KnowledgeEngine {

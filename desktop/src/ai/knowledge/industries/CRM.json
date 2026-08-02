@@ -1,15 +1,10 @@
 {
   "industry": "CRM",
-  "requiredModules": [
-    "Lead",
-    "Contact",
-    "Sales Pipeline",
-    "Admin"
-  ],
-  "optionalModules": [
-    "Task Manager",
-    "Email Integration",
-    "Reports",
-    "Client Portal"
-  ]
+  "roles": ["SalesAgent", "Manager", "Admin"],
+  "screens": ["LeadDashboard", "ContactCard", "DealPipeline", "ActivityLog"],
+  "entities": ["users", "leads", "contacts", "deals", "activities"],
+  "apis": ["/auth/login", "/leads", "/deals", "/activities"],
+  "businessRules": ["Leads require phone contact before validation", "Deals update requires Manager signature"],
+  "navigation": ["BottomTabs"],
+  "recommendedFeatures": ["EmailCampaignSync", "AnalyticsDashboard"]
 }

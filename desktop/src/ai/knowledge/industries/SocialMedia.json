@@ -1,15 +1,10 @@
 {
   "industry": "SocialMedia",
-  "requiredModules": [
-    "User Profile",
-    "Feed",
-    "Post",
-    "Admin"
-  ],
-  "optionalModules": [
-    "Story",
-    "Reels",
-    "Direct Messaging",
-    "Likes/Comments"
-  ]
+  "roles": ["User", "Moderator", "Admin"],
+  "screens": ["HomeFeed", "SearchPage", "CreatePost", "NotificationsPanel"],
+  "entities": ["users", "posts", "comments", "likes", "follows"],
+  "apis": ["/auth/login", "/posts", "/comments", "/likes"],
+  "businessRules": ["Only post creators can delete posts", "Likes count updates dynamically"],
+  "navigation": ["BottomTabs"],
+  "recommendedFeatures": ["VideoReels", "StoryBubbles"]
 }

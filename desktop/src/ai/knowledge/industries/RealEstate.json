@@ -1,15 +1,10 @@
 {
   "industry": "RealEstate",
-  "requiredModules": [
-    "Agent",
-    "Buyer",
-    "Listing",
-    "Admin"
-  ],
-  "optionalModules": [
-    "Map View",
-    "Mortgage Calculator",
-    "Document Upload",
-    "Virtual Tour"
-  ]
+  "roles": ["Client", "Agent", "Admin"],
+  "screens": ["PropertyListings", "PropertyDetail", "VirtualTourView", "ConsultationBooking"],
+  "entities": ["users", "properties", "bookings", "chats", "reviews"],
+  "apis": ["/auth/login", "/properties", "/bookings", "/chats"],
+  "businessRules": ["ConsultationBooking locks Agent time slots", "Only validated Agents publish PropertyListings"],
+  "navigation": ["BottomTabs"],
+  "recommendedFeatures": ["InteractiveMapCached", "VirtualTourSupport"]
 }

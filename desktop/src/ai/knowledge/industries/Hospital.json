@@ -1,15 +1,10 @@
 {
   "industry": "Hospital",
-  "requiredModules": [
-    "Doctor",
-    "Patient",
-    "Appointment",
-    "Admin"
-  ],
-  "optionalModules": [
-    "Lab",
-    "Pharmacy",
-    "Billing",
-    "Telemedicine"
-  ]
+  "roles": ["Doctor", "Patient", "Admin", "Nurse"],
+  "screens": ["DoctorDashboard", "PatientDashboard", "AppointmentBooking", "MedicalRecords"],
+  "entities": ["users", "appointments", "prescriptions", "billing", "lab_reports"],
+  "apis": ["/auth/login", "/users/me", "/appointments", "/prescriptions", "/billing"],
+  "businessRules": ["Doctor must approve appointment bookings", "Prescriptions require Doctor credentials"],
+  "navigation": ["TabNavigation", "StackNavigation"],
+  "recommendedFeatures": ["Telemedicine", "LabReportsIntegration", "PushNotifications"]
 }

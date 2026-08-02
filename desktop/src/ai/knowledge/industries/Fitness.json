@@ -1,15 +1,10 @@
 {
   "industry": "Fitness",
-  "requiredModules": [
-    "User",
-    "Workout Plan",
-    "Diet Plan",
-    "Admin"
-  ],
-  "optionalModules": [
-    "Step Tracker",
-    "Calorie Counter",
-    "Personal Trainer",
-    "Workout Calendar"
-  ]
+  "roles": ["Member", "Trainer", "Admin"],
+  "screens": ["WorkoutPlan", "DietTracker", "TrainerMessaging", "ProgressStats"],
+  "entities": ["users", "workouts", "diet_logs", "progress", "appointments"],
+  "apis": ["/auth/login", "/workouts", "/diet", "/progress"],
+  "businessRules": ["Trainers assign workouts to members", "Members log diet items daily"],
+  "navigation": ["BottomTabs"],
+  "recommendedFeatures": ["StepCounterSync", "CustomDietPlanner"]
 }

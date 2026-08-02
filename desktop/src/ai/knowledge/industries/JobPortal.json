@@ -1,15 +1,10 @@
 {
   "industry": "JobPortal",
-  "requiredModules": [
-    "Candidate",
-    "Recruiter",
-    "Job Posting",
-    "Admin"
-  ],
-  "optionalModules": [
-    "Resume Builder",
-    "Match Score",
-    "Chat",
-    "Interview Scheduler"
-  ]
+  "roles": ["Candidate", "Employer", "Admin"],
+  "screens": ["JobListings", "JobDetails", "ApplicationForm", "CompanyPage"],
+  "entities": ["users", "jobs", "applications", "resumes", "companies"],
+  "apis": ["/auth/login", "/jobs", "/applications", "/companies"],
+  "businessRules": ["Candidates submit PDF resumes on ApplicationForm", "Employers create JobListings"],
+  "navigation": ["BottomTabs"],
+  "recommendedFeatures": ["ResumeParserAI", "InterviewScheduler"]
 }

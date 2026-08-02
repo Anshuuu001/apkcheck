@@ -1,15 +1,10 @@
 {
   "industry": "Ecommerce",
-  "requiredModules": [
-    "Product Catalog",
-    "Shopping Cart",
-    "Checkout",
-    "Admin"
-  ],
-  "optionalModules": [
-    "Wishlist",
-    "Reviews",
-    "Coupons",
-    "Order Tracking"
-  ]
+  "roles": ["Customer", "Seller", "Admin"],
+  "screens": ["ProductListing", "ProductDetails", "ShoppingCart", "CheckoutProgress", "SellerDashboard"],
+  "entities": ["users", "products", "categories", "orders", "order_items", "cart_items"],
+  "apis": ["/auth/login", "/products", "/products/{id}", "/cart", "/orders"],
+  "businessRules": ["Stock levels must decrement on successful payment checkout", "Sellers can manage their catalog listings"],
+  "navigation": ["StackNavigation", "BottomTabs"],
+  "recommendedFeatures": ["ProductSearchFilters", "StripePaymentGateway", "ProductReviews"]
 }

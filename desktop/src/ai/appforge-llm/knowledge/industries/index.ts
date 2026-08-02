@@ -14,7 +14,7 @@ import Portfolio from './Portfolio.json';
 import RealEstate from './RealEstate.json';
 import JobPortal from './JobPortal.json';
 
-export const INDUSTRIES_KNOWLEDGE: Record<string, { industry: string; requiredModules: string[]; optionalModules: string[] }> = {
+export const INDUSTRIES_KNOWLEDGE: Record<string, any> = {
   'Healthcare': Hospital,
   'Hospital': Hospital,
   'Food & Delivery': FoodDelivery,

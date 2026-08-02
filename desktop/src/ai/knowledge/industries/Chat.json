@@ -1,15 +1,10 @@
 {
   "industry": "Chat",
-  "requiredModules": [
-    "User",
-    "Message",
-    "Contact List",
-    "Admin"
-  ],
-  "optionalModules": [
-    "Group Chat",
-    "Voice Call",
-    "Video Call",
-    "File Sharing"
-  ]
+  "roles": ["User", "Moderator", "Admin"],
+  "screens": ["ActiveChats", "ConversationWindow", "GroupInfo", "ProfileSettings"],
+  "entities": ["users", "conversations", "messages", "attachments", "members"],
+  "apis": ["/auth/login", "/conversations", "/messages", "/profile"],
+  "businessRules": ["Only group admins update GroupInfo details", "Messages require sender authentication"],
+  "navigation": ["BottomTabs"],
+  "recommendedFeatures": ["VoiceNotes", "FileAttachments"]
 }

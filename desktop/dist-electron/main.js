@@ -5892,270 +5892,263 @@ function initLearningDatabase(projectsDir2) {
   }
 }
 
-// src/ai/appforge-llm/core/Tokenizer.ts
-var Tokenizer = class {
-  /**
-   * Simple tokenizer that cleans and splits text into unique keywords
-   */
-  static tokenize(text) {
-    if (!text) return [];
-    return text.toLowerCase().replace(/[^\w\s]/g, " ").split(/\s+/).filter((w) => w.length > 2);
+// src/ai/analyzer/IntentAnalyzer.ts
+var INTENT_PROMPT = (idea) => `You are an expert app architect. Analyze this user request and determine the user's intent.
+Possible intents:
+- CREATE_APPLICATION: Wants to build a new app from scratch.
+- UPDATE_APPLICATION: Wants to modify or update an existing application.
+- ADD_FEATURE: Wants to add a specific feature (e.g. Stripe, chat, biometric).
+- REMOVE_FEATURE: Wants to remove a specific feature.
+- FIX_BUG: Wants to debug or resolve a code error.
+- CHANGE_THEME: Wants to customize colors, fonts, or styling theme.
+- ADD_SCREEN: Wants to create a new layout screen.
+- DELETE_SCREEN: Wants to delete an existing screen.
+- GENERATE_APK: Wants to build the APK package.
+- GENERATE_BACKEND: Wants to export Spring Boot files.
+- GENERATE_DATABASE: Wants to configure or generate SQL database tables.
+
+USER MESSAGE: "${idea}"
+
+Return ONLY a JSON object with no markdown:
+{
+  "intent": "IntentType",
+  "confidence": 0.95
+}`;
+var IntentAnalyzer = class {
+  async analyze(idea) {
+    try {
+      if (window.electronAPI && typeof window.electronAPI.callAI === "function") {
+        const response = await window.electronAPI.callAI(INTENT_PROMPT(idea));
+        if (response) {
+          const cleaned = response.trim().replace(/^```json\n?/, "").replace(/\n?```$/, "");
+          const parsed = JSON.parse(cleaned);
+          if (parsed && parsed.intent) {
+            return {
+              intent: parsed.intent,
+              confidence: typeof parsed.confidence === "number" ? parsed.confidence : 0.9
+            };
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("[IntentAnalyzer] LLM classification failed, falling back to heuristics:", e);
+    }
+    const lower = idea.toLowerCase();
+    if (lower.includes("build") || lower.includes("create") || lower.includes("make") || lower.includes("develop") || lower.includes("banana") || lower.includes("banaye") || lower.includes("banado") || lower.includes("banaiye")) {
+      return { intent: "CREATE_APPLICATION", confidence: 0.9 };
+    }
+    if (lower.includes("apk") || lower.includes("compile") || lower.includes("build apk") || lower.includes("binary")) {
+      return { intent: "GENERATE_APK", confidence: 0.95 };
+    }
+    if (lower.includes("backend") || lower.includes("spring boot") || lower.includes("controller") || lower.includes("java")) {
+      return { intent: "GENERATE_BACKEND", confidence: 0.9 };
+    }
+    if (lower.includes("database") || lower.includes("mysql") || lower.includes("table") || lower.includes("sql") || lower.includes("schema")) {
+      return { intent: "GENERATE_DATABASE", confidence: 0.9 };
+    }
+    if (lower.includes("theme") || lower.includes("color") || lower.includes("style") || lower.includes("dark mode") || lower.includes("rang") || lower.includes("design")) {
+      return { intent: "CHANGE_THEME", confidence: 0.95 };
+    }
+    if (lower.includes("add screen") || lower.includes("new screen") || lower.includes("create screen") || lower.includes("screen jodo") || lower.includes("screen add")) {
+      return { intent: "ADD_SCREEN", confidence: 0.95 };
+    }
+    if (lower.includes("delete screen") || lower.includes("remove screen") || lower.includes("screen hatao")) {
+      return { intent: "DELETE_SCREEN", confidence: 0.95 };
+    }
+    if (lower.includes("add feature") || lower.includes("enable") || lower.includes("feature jodo") || lower.includes("feature add") || lower.includes("daalo") || lower.includes("jodo")) {
+      return { intent: "ADD_FEATURE", confidence: 0.85 };
+    }
+    if (lower.includes("remove feature") || lower.includes("disable") || lower.includes("hatao") || lower.includes("hata")) {
+      return { intent: "REMOVE_FEATURE", confidence: 0.85 };
+    }
+    if (lower.includes("fix") || lower.includes("bug") || lower.includes("error") || lower.includes("debug") || lower.includes("theek karo") || lower.includes("sudhar")) {
+      return { intent: "FIX_BUG", confidence: 0.9 };
+    }
+    if (lower.includes("update") || lower.includes("modify") || lower.includes("change") || lower.includes("badalna") || lower.includes("badlo")) {
+      return { intent: "UPDATE_APPLICATION", confidence: 0.8 };
+    }
+    return { intent: "CREATE_APPLICATION", confidence: 0.7 };
   }
 };
 
 // src/ai/knowledge/industries/Hospital.json
 var Hospital_default = {
   industry: "Hospital",
-  requiredModules: [
-    "Doctor",
-    "Patient",
-    "Appointment",
-    "Admin"
-  ],
-  optionalModules: [
-    "Lab",
-    "Pharmacy",
-    "Billing",
-    "Telemedicine"
-  ]
+  roles: ["Doctor", "Patient", "Admin", "Nurse"],
+  screens: ["DoctorDashboard", "PatientDashboard", "AppointmentBooking", "MedicalRecords"],
+  entities: ["users", "appointments", "prescriptions", "billing", "lab_reports"],
+  apis: ["/auth/login", "/users/me", "/appointments", "/prescriptions", "/billing"],
+  businessRules: ["Doctor must approve appointment bookings", "Prescriptions require Doctor credentials"],
+  navigation: ["TabNavigation", "StackNavigation"],
+  recommendedFeatures: ["Telemedicine", "LabReportsIntegration", "PushNotifications"]
 };
 
 // src/ai/knowledge/industries/FoodDelivery.json
 var FoodDelivery_default = {
   industry: "FoodDelivery",
-  requiredModules: [
-    "Customer",
-    "Restaurant",
-    "Delivery Partner",
-    "Admin"
-  ],
-  optionalModules: [
-    "Wallet",
-    "Coupons",
-    "Order History",
-    "Live Tracking"
-  ]
+  roles: ["Customer", "RestaurantOwner", "DeliveryPartner", "Admin"],
+  screens: ["RestaurantBrowse", "MenuSelection", "CartDetails", "OrderTracking", "EarningsPanel"],
+  entities: ["users", "restaurants", "menu_items", "orders", "order_items", "delivery_tracking"],
+  apis: ["/auth/login", "/restaurants", "/restaurants/{id}/menu", "/orders", "/delivery/track"],
+  businessRules: ["Orders require payment clearance before kitchen prep", "Delivery route assigns to closest online rider"],
+  navigation: ["BottomTabs", "DrawerNavigation"],
+  recommendedFeatures: ["LiveGPSTracking", "MultiVendorSupport", "PromoCoupons"]
 };
 
 // src/ai/knowledge/industries/Ecommerce.json
 var Ecommerce_default = {
   industry: "Ecommerce",
-  requiredModules: [
-    "Product Catalog",
-    "Shopping Cart",
-    "Checkout",
-    "Admin"
-  ],
-  optionalModules: [
-    "Wishlist",
-    "Reviews",
-    "Coupons",
-    "Order Tracking"
-  ]
+  roles: ["Customer", "Seller", "Admin"],
+  screens: ["ProductListing", "ProductDetails", "ShoppingCart", "CheckoutProgress", "SellerDashboard"],
+  entities: ["users", "products", "categories", "orders", "order_items", "cart_items"],
+  apis: ["/auth/login", "/products", "/products/{id}", "/cart", "/orders"],
+  businessRules: ["Stock levels must decrement on successful payment checkout", "Sellers can manage their catalog listings"],
+  navigation: ["StackNavigation", "BottomTabs"],
+  recommendedFeatures: ["ProductSearchFilters", "StripePaymentGateway", "ProductReviews"]
 };
 
 // src/ai/knowledge/industries/School.json
 var School_default = {
   industry: "School",
-  requiredModules: [
-    "Student",
-    "Teacher",
-    "Classroom",
-    "Admin"
-  ],
-  optionalModules: [
-    "Library",
-    "Fee Management",
-    "Transport",
-    "Attendance"
-  ]
+  roles: ["Student", "Teacher", "Admin", "Parent"],
+  screens: ["StudentDashboard", "TeacherDashboard", "AttendanceLog", "GradesViewer"],
+  entities: ["users", "attendance", "grades", "classes", "exams"],
+  apis: ["/auth/login", "/attendance", "/grades", "/classes"],
+  businessRules: ["Teachers input grades", "Parents view student statistics"],
+  navigation: ["BottomTabs"],
+  recommendedFeatures: ["HomeworkAssigner", "ParentTeacherMessaging"]
 };
 
 // src/ai/knowledge/industries/Banking.json
 var Banking_default = {
   industry: "Banking",
-  requiredModules: [
-    "Customer",
-    "Account",
-    "Transaction",
-    "Admin"
-  ],
-  optionalModules: [
-    "Loan",
-    "Investment",
-    "Card Management",
-    "Analytics"
-  ]
+  roles: ["Customer", "Teller", "Admin"],
+  screens: ["AccountSummary", "TransactionHistory", "FundTransfer", "LoanApplication"],
+  entities: ["users", "accounts", "transactions", "loans", "cards"],
+  apis: ["/auth/login", "/accounts", "/transactions", "/transfers"],
+  businessRules: ["Transactions require sufficient balance", "Overdraft limit validation"],
+  navigation: ["TabNavigation"],
+  recommendedFeatures: ["BiometricAuth", "CardControls"]
 };
 
 // src/ai/knowledge/industries/Inventory.json
 var Inventory_default = {
   industry: "Inventory",
-  requiredModules: [
-    "Product",
-    "Supplier",
-    "Stock Alert",
-    "Admin"
-  ],
-  optionalModules: [
-    "Purchase Order",
-    "Sales Order",
-    "Barcode Scanner",
-    "Warehouse"
-  ]
+  roles: ["Staff", "Manager", "Admin"],
+  screens: ["StockOverview", "ItemDetail", "ReorderPanel", "SupplierDirectory"],
+  entities: ["users", "items", "categories", "suppliers", "stock_logs"],
+  apis: ["/auth/login", "/items", "/stock/adjust", "/suppliers"],
+  businessRules: ["Low stock highlights items in Reorder panel", "Managers approve stock discards"],
+  navigation: ["BottomTabs"],
+  recommendedFeatures: ["BarcodeScanner", "StockAlerts"]
 };
 
 // src/ai/knowledge/industries/Travel.json
 var Travel_default = {
   industry: "Travel",
-  requiredModules: [
-    "Traveler",
-    "Booking",
-    "Itinerary",
-    "Admin"
-  ],
-  optionalModules: [
-    "Hotel Booking",
-    "Flight Booking",
-    "Guide Directory",
-    "Reviews"
-  ]
+  roles: ["Traveler", "Guide", "Admin"],
+  screens: ["TripPlanner", "ItineraryDetails", "BookingPortal", "ReviewBoards"],
+  entities: ["users", "trips", "bookings", "locations", "reviews"],
+  apis: ["/auth/login", "/trips", "/bookings", "/reviews"],
+  businessRules: ["Bookings lock itinerary slots", "Only completed travelers review Guides"],
+  navigation: ["StackNavigation"],
+  recommendedFeatures: ["OfflineMapCached", "TripPlannerAI"]
 };
 
 // src/ai/knowledge/industries/CRM.json
 var CRM_default = {
   industry: "CRM",
-  requiredModules: [
-    "Lead",
-    "Contact",
-    "Sales Pipeline",
-    "Admin"
-  ],
-  optionalModules: [
-    "Task Manager",
-    "Email Integration",
-    "Reports",
-    "Client Portal"
-  ]
+  roles: ["SalesAgent", "Manager", "Admin"],
+  screens: ["LeadDashboard", "ContactCard", "DealPipeline", "ActivityLog"],
+  entities: ["users", "leads", "contacts", "deals", "activities"],
+  apis: ["/auth/login", "/leads", "/deals", "/activities"],
+  businessRules: ["Leads require phone contact before validation", "Deals update requires Manager signature"],
+  navigation: ["BottomTabs"],
+  recommendedFeatures: ["EmailCampaignSync", "AnalyticsDashboard"]
 };
 
 // src/ai/knowledge/industries/Chat.json
 var Chat_default = {
   industry: "Chat",
-  requiredModules: [
-    "User",
-    "Message",
-    "Contact List",
-    "Admin"
-  ],
-  optionalModules: [
-    "Group Chat",
-    "Voice Call",
-    "Video Call",
-    "File Sharing"
-  ]
+  roles: ["User", "Moderator", "Admin"],
+  screens: ["ActiveChats", "ConversationWindow", "GroupInfo", "ProfileSettings"],
+  entities: ["users", "conversations", "messages", "attachments", "members"],
+  apis: ["/auth/login", "/conversations", "/messages", "/profile"],
+  businessRules: ["Only group admins update GroupInfo details", "Messages require sender authentication"],
+  navigation: ["BottomTabs"],
+  recommendedFeatures: ["VoiceNotes", "FileAttachments"]
 };
 
 // src/ai/knowledge/industries/SocialMedia.json
 var SocialMedia_default = {
   industry: "SocialMedia",
-  requiredModules: [
-    "User Profile",
-    "Feed",
-    "Post",
-    "Admin"
-  ],
-  optionalModules: [
-    "Story",
-    "Reels",
-    "Direct Messaging",
-    "Likes/Comments"
-  ]
+  roles: ["User", "Moderator", "Admin"],
+  screens: ["HomeFeed", "SearchPage", "CreatePost", "NotificationsPanel"],
+  entities: ["users", "posts", "comments", "likes", "follows"],
+  apis: ["/auth/login", "/posts", "/comments", "/likes"],
+  businessRules: ["Only post creators can delete posts", "Likes count updates dynamically"],
+  navigation: ["BottomTabs"],
+  recommendedFeatures: ["VideoReels", "StoryBubbles"]
 };
 
 // src/ai/knowledge/industries/Fitness.json
 var Fitness_default = {
   industry: "Fitness",
-  requiredModules: [
-    "User",
-    "Workout Plan",
-    "Diet Plan",
-    "Admin"
-  ],
-  optionalModules: [
-    "Step Tracker",
-    "Calorie Counter",
-    "Personal Trainer",
-    "Workout Calendar"
-  ]
+  roles: ["Member", "Trainer", "Admin"],
+  screens: ["WorkoutPlan", "DietTracker", "TrainerMessaging", "ProgressStats"],
+  entities: ["users", "workouts", "diet_logs", "progress", "appointments"],
+  apis: ["/auth/login", "/workouts", "/diet", "/progress"],
+  businessRules: ["Trainers assign workouts to members", "Members log diet items daily"],
+  navigation: ["BottomTabs"],
+  recommendedFeatures: ["StepCounterSync", "CustomDietPlanner"]
 };
 
 // src/ai/knowledge/industries/Booking.json
 var Booking_default = {
   industry: "Booking",
-  requiredModules: [
-    "User",
-    "Provider",
-    "Slot Booking",
-    "Admin"
-  ],
-  optionalModules: [
-    "Review",
-    "Multi-Location",
-    "SMS Alerts",
-    "Waiting List"
-  ]
+  roles: ["Customer", "Vendor", "Admin"],
+  screens: ["ServiceBrowse", "SlotScheduler", "OrderSummary", "ReviewList"],
+  entities: ["users", "services", "slots", "bookings", "payments"],
+  apis: ["/auth/login", "/services", "/slots", "/bookings"],
+  businessRules: ["Bookings lock scheduler slots upon stripe checkout", "Cancellation is permitted 24h prior"],
+  navigation: ["BottomTabs"],
+  recommendedFeatures: ["CalendarSync", "StripeCheckoutPage"]
 };
 
 // src/ai/knowledge/industries/Portfolio.json
 var Portfolio_default = {
   industry: "Portfolio",
-  requiredModules: [
-    "Owner",
-    "Project Show",
-    "Resume",
-    "Admin"
-  ],
-  optionalModules: [
-    "Contact Form",
-    "Blog",
-    "Testimonials",
-    "Analytics"
-  ]
+  roles: ["Visitor", "Owner", "Admin"],
+  screens: ["ProjectShowcase", "SkillGrid", "ResumeTimeline", "ContactForm"],
+  entities: ["users", "projects", "skills", "messages", "profile"],
+  apis: ["/auth/login", "/projects", "/messages"],
+  businessRules: ["Visitors send contact messages", "Owner updates ResumeTimeline details"],
+  navigation: ["StackNavigation"],
+  recommendedFeatures: ["DynamicBlogEngine", "AnalyticsStats"]
 };
 
 // src/ai/knowledge/industries/RealEstate.json
 var RealEstate_default = {
   industry: "RealEstate",
-  requiredModules: [
-    "Agent",
-    "Buyer",
-    "Listing",
-    "Admin"
-  ],
-  optionalModules: [
-    "Map View",
-    "Mortgage Calculator",
-    "Document Upload",
-    "Virtual Tour"
-  ]
+  roles: ["Client", "Agent", "Admin"],
+  screens: ["PropertyListings", "PropertyDetail", "VirtualTourView", "ConsultationBooking"],
+  entities: ["users", "properties", "bookings", "chats", "reviews"],
+  apis: ["/auth/login", "/properties", "/bookings", "/chats"],
+  businessRules: ["ConsultationBooking locks Agent time slots", "Only validated Agents publish PropertyListings"],
+  navigation: ["BottomTabs"],
+  recommendedFeatures: ["InteractiveMapCached", "VirtualTourSupport"]
 };
 
 // src/ai/knowledge/industries/JobPortal.json
 var JobPortal_default = {
   industry: "JobPortal",
-  requiredModules: [
-    "Candidate",
-    "Recruiter",
-    "Job Posting",
-    "Admin"
-  ],
-  optionalModules: [
-    "Resume Builder",
-    "Match Score",
-    "Chat",
-    "Interview Scheduler"
-  ]
+  roles: ["Candidate", "Employer", "Admin"],
+  screens: ["JobListings", "JobDetails", "ApplicationForm", "CompanyPage"],
+  entities: ["users", "jobs", "applications", "resumes", "companies"],
+  apis: ["/auth/login", "/jobs", "/applications", "/companies"],
+  businessRules: ["Candidates submit PDF resumes on ApplicationForm", "Employers create JobListings"],
+  navigation: ["BottomTabs"],
+  recommendedFeatures: ["ResumeParserAI", "InterviewScheduler"]
 };
 
 // src/ai/knowledge/industries/index.ts
@@ -6188,6 +6181,59 @@ var INDUSTRIES_KNOWLEDGE = {
   "JobPortal": JobPortal_default
 };
 
+// src/ai/appforge-llm/core/KnowledgeEngine.ts
+var KnowledgeEngine = class {
+  getKnowledge(industry) {
+    return INDUSTRIES_KNOWLEDGE[industry] || null;
+  }
+};
+
+// src/ai/appforge-llm/core/ReasoningEngine.ts
+var ReasoningEngine = class {
+  /**
+   * Resolves constraints and automatically infers/injects missing features
+   * based on user idea keywords (e.g. restaurant suggests Menu, Orders, Kitchen, etc.)
+   */
+  inferModules(idea, baseModules) {
+    const resolved = new Set(baseModules);
+    const ideaLower = idea.toLowerCase();
+    if (ideaLower.includes("restaurant") || ideaLower.includes("food") || ideaLower.includes("delivery") || ideaLower.includes("cafe")) {
+      ["MenuSelection", "CartDetails", "OrderTracking", "restaurants", "menu_items", "orders", "DeliveryPartner", "Payments"].forEach((m) => resolved.add(m));
+    }
+    if (ideaLower.includes("hospital") || ideaLower.includes("doctor") || ideaLower.includes("medical") || ideaLower.includes("clinic")) {
+      ["DoctorDashboard", "PatientDashboard", "AppointmentBooking", "appointments", "prescriptions", "billing"].forEach((m) => resolved.add(m));
+    }
+    if (ideaLower.includes("ecommerce") || ideaLower.includes("shop") || ideaLower.includes("store") || ideaLower.includes("buy")) {
+      ["ProductListing", "ProductDetails", "ShoppingCart", "CheckoutProgress", "products", "categories", "orders"].forEach((m) => resolved.add(m));
+    }
+    if (resolved.has("CartDetails") || resolved.has("ShoppingCart") || resolved.has("Shopping Cart")) {
+      resolved.add("CheckoutProgress");
+    }
+    if (resolved.has("CheckoutProgress") || resolved.has("Checkout")) {
+      resolved.add("Authentication");
+    }
+    return Array.from(resolved);
+  }
+  resolveConstraints(modules) {
+    const resolved = new Set(modules);
+    if (resolved.has("Checkout") && !resolved.has("Shopping Cart")) {
+      resolved.add("Shopping Cart");
+    }
+    return Array.from(resolved);
+  }
+};
+
+// src/ai/appforge-llm/core/Tokenizer.ts
+var Tokenizer = class {
+  /**
+   * Simple tokenizer that cleans and splits text into unique keywords
+   */
+  static tokenize(text) {
+    if (!text) return [];
+    return text.toLowerCase().replace(/[^\w\s]/g, " ").split(/\s+/).filter((w) => w.length > 2);
+  }
+};
+
 // src/ai/appforge-llm/core/ConfidenceEngine.ts
 var ConfidenceEngine = class {
   /**
@@ -6217,15 +6263,93 @@ var ConfidenceEngine = class {
 // src/ai/appforge-llm/core/DecisionEngine.ts
 var DecisionEngine = class {
   confidenceEngine = new ConfidenceEngine();
+  /**
+   * Evaluates if we execute offline, trigger clarifying questions, or route to API:
+   * - Confidence >= 90%: Offline (LOCAL)
+   * - Confidence 70-89%: Ask user clarifying questions (QUESTIONS)
+   * - Confidence < 70%: Use External LLM (API)
+   */
   evaluate(idea, industry, db) {
     const confidence = this.confidenceEngine.calculate(idea, industry, db);
-    if (confidence >= 0.95) {
+    if (confidence >= 0.9) {
       return { action: "LOCAL", confidence };
     }
-    if (confidence >= 0.8) {
-      return { action: "OPTIONAL_API", confidence };
+    if (confidence >= 0.7) {
+      return { action: "QUESTIONS", confidence };
     }
     return { action: "API", confidence };
+  }
+};
+
+// src/ai/interview/InterviewEngine.ts
+var InterviewEngine = class {
+  generateQuestions(missingFeatures, industry) {
+    const questions = [];
+    missingFeatures.forEach((feature) => {
+      const fieldName = feature.charAt(0).toLowerCase() + feature.slice(1).replace(/\s+/g, "");
+      let questionText = `Do you need ${feature}?`;
+      if (feature === "Authentication") questionText = "Do you need User Login & Accounts?";
+      else if (feature === "Billing" || feature === "Payment") questionText = `Do you need Online Payments & Billing?`;
+      questions.push({
+        id: `q_${fieldName}`,
+        question: questionText,
+        subtext: `Determined as a standard option for ${industry} apps`,
+        type: "toggle",
+        required: false,
+        field: fieldName
+      });
+    });
+    if (questions.length === 0) {
+      questions.push({
+        id: "q_dark_theme",
+        question: "Do you need Dark Theme support?",
+        type: "toggle",
+        required: false,
+        field: "darkTheme"
+      });
+      questions.push({
+        id: "q_notifications",
+        question: "Do you need Push Notifications?",
+        type: "toggle",
+        required: false,
+        field: "notificationsRequired"
+      });
+    }
+    return questions;
+  }
+};
+
+// src/ai/appforge-llm/core/Brain.ts
+var Brain = class {
+  constructor(db) {
+    this.db = db;
+  }
+  db;
+  intentAnalyzer = new IntentAnalyzer();
+  knowledgeEngine = new KnowledgeEngine();
+  reasoningEngine = new ReasoningEngine();
+  decisionEngine = new DecisionEngine();
+  interviewEngine = new InterviewEngine();
+  /**
+   * Directs request sequence: User Idea -> Brain -> IntentAnalyzer -> KnowledgeEngine -> ReasoningEngine -> DecisionEngine -> InterviewEngine
+   */
+  async processRequest(idea, industry) {
+    const intentResult = await this.intentAnalyzer.analyze(idea);
+    const knowledge = this.knowledgeEngine.getKnowledge(industry);
+    const baselineModules = knowledge ? [...knowledge.roles, ...knowledge.screens, ...knowledge.entities] : [];
+    const reasonedModules = this.reasoningEngine.inferModules(idea, baselineModules);
+    const decision = this.decisionEngine.evaluate(idea, industry, this.db);
+    const missingModules = knowledge ? knowledge.recommendedFeatures.filter((f) => !reasonedModules.includes(f)) : [];
+    const questions = this.interviewEngine.generateQuestions(industry, missingModules);
+    console.log(`[AppForge LLM - Brain] Pipeline executed. Confidence: ${Math.round(decision.confidence * 100)}%. Decision path: ${decision.action}`);
+    return {
+      intent: intentResult.intent,
+      confidence: decision.confidence,
+      decision: decision.action,
+      suggestedModules: reasonedModules,
+      missingModules,
+      questions
+    };
   }
 };
 
@@ -6269,6 +6393,16 @@ var LearningManager = class {
       console.warn("[LearningManager] Error parsing responses for learning comparison:", e);
       return 0.7;
     }
+  }
+};
+
+// src/ai/appforge-llm/core/ResponseEngine.ts
+var ResponseEngine = class {
+  /**
+   * Encapsulates data into standard stringified JSON responses
+   */
+  static format(data) {
+    return JSON.stringify(data, null, 2);
   }
 };
 
@@ -6351,7 +6485,6 @@ var AIOrchestrator = class {
   geminiExecutor;
   // AppForge LLM components
   learningDb;
-  decisionEngine;
   learningManager;
   constructor() {
     this.openai = new OpenAIProvider();
@@ -6365,12 +6498,12 @@ var AIOrchestrator = class {
     this.openaiExecutor = new PromptExecutor(this.openai);
     this.geminiExecutor = new PromptExecutor(this.gemini);
     this.learningDb = initLearningDatabase(learningDbDir);
-    this.decisionEngine = new DecisionEngine();
     this.learningManager = new LearningManager(this.learningDb);
   }
   /**
    * Routes prompt queries first through local AppForge LLM evaluation.
-   * If local confidence is high (>95%), answers directly from local expert systems.
+   * If local confidence is high (>=90%), answers directly from local expert systems.
+   * If confidence is 70-89%, returns clarifying questions.
    * Otherwise, makes external API calls and runs the self-learning training loops.
    */
   async callAI(prompt, taskType = "core", options) {
@@ -6386,10 +6519,11 @@ var AIOrchestrator = class {
     if (promptLower.includes("hospital") || promptLower.includes("doctor")) guessedIndustry = "Hospital";
     else if (promptLower.includes("food") || promptLower.includes("delivery")) guessedIndustry = "FoodDelivery";
     else if (promptLower.includes("shop") || promptLower.includes("ecommerce")) guessedIndustry = "Ecommerce";
-    const decision = this.decisionEngine.evaluate(prompt, guessedIndustry, this.learningDb);
-    console.log(`[AppForge LLM] Self confidence rating: ${Math.round(decision.confidence * 100)}% -> Action: ${decision.action}`);
-    if (decision.action === "LOCAL" && taskType === "core") {
-      console.log("[AppForge LLM] Confidence is high (>95%). Bypassing external API and serving local expert blueprint!");
+    const brain = new Brain(this.learningDb);
+    const result = await brain.processRequest(prompt, guessedIndustry);
+    console.log(`[AppForge LLM] Self confidence rating: ${Math.round(result.confidence * 100)}% -> Action: ${result.decision}`);
+    if (result.decision === "LOCAL" && taskType === "core") {
+      console.log("[AppForge LLM] Confidence is high (>=90%). Bypassing external API and serving local expert blueprint!");
       if (guessedIndustry === "Hospital") {
         const localResponse = JSON.stringify([
           {
@@ -6410,13 +6544,19 @@ var AIOrchestrator = class {
         return localResponse;
       }
     }
+    if (result.decision === "QUESTIONS" && taskType === "core") {
+      console.log("[AppForge LLM] Confidence is moderate (70-89%). Triggering clarifying questions interview!");
+      const questionsResponse = ResponseEngine.format(result.questions);
+      PromptCache.set(prompt, questionsResponse);
+      return questionsResponse;
+    }
     const apiResult = await this.callExternalLLM(prompt, taskType, options);
     if (taskType === "core") {
       PromptCache.set(prompt, apiResult);
     }
-    if (decision.action === "API" && taskType === "core") {
+    if (result.decision === "API" && taskType === "core") {
       try {
-        console.log("[AppForge LLM] Confidence score was low (<80%). Running dynamic comparison and self-improving training update...");
+        console.log("[AppForge LLM] Confidence score was low (<70%). Running dynamic comparison and self-improving training update...");
         const localTemplateMock = JSON.stringify({ industry: guessedIndustry, modules: [] });
         await this.learningManager.compareAndLearn(prompt, localTemplateMock, apiResult);
       } catch (err) {
