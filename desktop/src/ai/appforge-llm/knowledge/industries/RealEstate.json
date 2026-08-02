@@ -1,0 +1,15 @@
+{
+  "industry": "RealEstate",
+  "requiredModules": [
+    "Agent",
+    "Buyer",
+    "Listing",
+    "Admin"
+  ],
+  "optionalModules": [
+    "Map View",
+    "Mortgage Calculator",
+    "Document Upload",
+    "Virtual Tour"
+  ]
+}

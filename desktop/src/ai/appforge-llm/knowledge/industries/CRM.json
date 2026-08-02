@@ -1,0 +1,15 @@
+{
+  "industry": "CRM",
+  "requiredModules": [
+    "Lead",
+    "Contact",
+    "Sales Pipeline",
+    "Admin"
+  ],
+  "optionalModules": [
+    "Task Manager",
+    "Email Integration",
+    "Reports",
+    "Client Portal"
+  ]
+}

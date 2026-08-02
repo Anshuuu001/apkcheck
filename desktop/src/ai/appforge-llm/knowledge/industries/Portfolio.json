@@ -1,0 +1,15 @@
+{
+  "industry": "Portfolio",
+  "requiredModules": [
+    "Owner",
+    "Project Show",
+    "Resume",
+    "Admin"
+  ],
+  "optionalModules": [
+    "Contact Form",
+    "Blog",
+    "Testimonials",
+    "Analytics"
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "industry": "Inventory",
+  "requiredModules": [
+    "Product",
+    "Supplier",
+    "Stock Alert",
+    "Admin"
+  ],
+  "optionalModules": [
+    "Purchase Order",
+    "Sales Order",
+    "Barcode Scanner",
+    "Warehouse"
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "industry": "Chat",
+  "requiredModules": [
+    "User",
+    "Message",
+    "Contact List",
+    "Admin"
+  ],
+  "optionalModules": [
+    "Group Chat",
+    "Voice Call",
+    "Video Call",
+    "File Sharing"
+  ]
+}

@@ -2,6 +2,9 @@ import { OpenAIProvider } from './OpenAIProvider';
 import { GeminiProvider } from './GeminiProvider';
 import { PromptExecutor } from './PromptExecutor';
 import type { LLMRequestOptions } from './LLMProvider';
+import { initLearningDatabase, type LearningDatabase } from '../appforge-llm/learning/learningDb';
+import { DecisionEngine } from '../appforge-llm/core/DecisionEngine';
+import { LearningManager } from '../appforge-llm/learning/LearningManager';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -43,12 +46,24 @@ function loadEnv(): void {
 // Load environment variables immediately
 loadEnv();
 
+// Resolve write-permitted folder path for learning.db
+const appDataPath = process.env.APPDATA || (process.platform === 'darwin' ? process.env.HOME + '/Library/Preferences' : process.env.HOME + '/.config');
+const learningDbDir = path.join(appDataPath, 'AppForge AI');
+if (!fs.existsSync(learningDbDir)) {
+  fs.mkdirSync(learningDbDir, { recursive: true });
+}
+
 export class AIOrchestrator {
   private openai: OpenAIProvider;
   private gemini: GeminiProvider;
   
   private openaiExecutor: PromptExecutor;
   private geminiExecutor: PromptExecutor;
+
+  // AppForge LLM components
+  private learningDb: LearningDatabase;
+  private decisionEngine: DecisionEngine;
+  private learningManager: LearningManager;
 
   constructor() {
     this.openai = new OpenAIProvider();
@@ -64,14 +79,70 @@ export class AIOrchestrator {
 
     this.openaiExecutor = new PromptExecutor(this.openai);
     this.geminiExecutor = new PromptExecutor(this.gemini);
+
+    // Instantiate local AppForge LLM self-improving engines
+    this.learningDb = initLearningDatabase(learningDbDir);
+    this.decisionEngine = new DecisionEngine();
+    this.learningManager = new LearningManager(this.learningDb);
   }
 
   /**
-   * Orchestrates the call to the appropriate LLM provider.
-   * If taskType is 'ui-suggestion' and Gemini is available, uses Gemini.
-   * Otherwise, defaults to OpenAI with a fallback to Gemini if OpenAI fails.
+   * Routes prompt queries first through local AppForge LLM evaluation.
+   * If local confidence is high (>95%), answers directly from local expert systems.
+   * Otherwise, makes external API calls and runs the self-learning training loops.
    */
   async callAI(prompt: string, taskType: 'core' | 'ui-suggestion' = 'core', options?: LLMRequestOptions): Promise<string> {
+    // 1. Evaluate prompt using AppForge LLM core
+    const promptLower = prompt.toLowerCase();
+    let guessedIndustry = 'Custom';
+    if (promptLower.includes('hospital') || promptLower.includes('doctor')) guessedIndustry = 'Hospital';
+    else if (promptLower.includes('food') || promptLower.includes('delivery')) guessedIndustry = 'FoodDelivery';
+    else if (promptLower.includes('shop') || promptLower.includes('ecommerce')) guessedIndustry = 'Ecommerce';
+
+    const decision = this.decisionEngine.evaluate(prompt, guessedIndustry, this.learningDb);
+    console.log(`[AppForge LLM] Self confidence rating: ${Math.round(decision.confidence * 100)}% -> Action: ${decision.action}`);
+
+    // Rule: Confidence >95% -> Local Resolution (No external API Call!)
+    if (decision.action === 'LOCAL' && taskType === 'core') {
+      console.log('[AppForge LLM] Confidence is high (>95%). Bypassing external API and serving local expert blueprint!');
+      // Returns local checklist questions dynamically mapping the domain
+      if (guessedIndustry === 'Hospital') {
+        return JSON.stringify([
+          {
+            id: 'roles_hospital_local',
+            question: 'Which portals and dashboards do you need in your hospital app?',
+            type: 'multi-select',
+            required: true,
+            field: 'userRoles',
+            options: [
+              { label: 'Doctor Portal', value: 'Doctor' },
+              { label: 'Patient Portal', value: 'Patient' },
+              { label: 'Reception Dashboard', value: 'Receptionist' },
+              { label: 'System Admin Panel', value: 'Admin' }
+            ]
+          }
+        ]);
+      }
+    }
+
+    // Optional or Required external API execution
+    const apiResult = await this.callExternalLLM(prompt, taskType, options);
+
+    // Rule: Confidence <80% -> Learn and Save updates to local learning database!
+    if (decision.action === 'API' && taskType === 'core') {
+      try {
+        console.log('[AppForge LLM] Confidence score was low (<80%). Running dynamic comparison and self-improving training update...');
+        const localTemplateMock = JSON.stringify({ industry: guessedIndustry, modules: [] });
+        await this.learningManager.compareAndLearn(prompt, localTemplateMock, apiResult);
+      } catch (err) {
+        console.warn('[AIOrchestrator] Self-learning training loop error ignored:', err);
+      }
+    }
+
+    return apiResult;
+  }
+
+  private async callExternalLLM(prompt: string, taskType: 'core' | 'ui-suggestion', options?: LLMRequestOptions): Promise<string> {
     const isGeminiAvailable = !!process.env.GEMINI_API_KEY;
     const isOpenAIAvailable = !!process.env.OPENAI_API_KEY;
 

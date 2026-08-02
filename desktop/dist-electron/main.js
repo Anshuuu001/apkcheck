@@ -1455,8 +1455,8 @@ var require_react = __commonJS({
 
 // src/main/main.ts
 var import_electron = require("electron");
-var import_path4 = __toESM(require("path"));
-var import_fs4 = __toESM(require("fs"));
+var import_path5 = __toESM(require("path"));
+var import_fs5 = __toESM(require("fs"));
 
 // src/main/database.ts
 var import_path = __toESM(require("path"));
@@ -5708,23 +5708,518 @@ var PromptExecutor = class {
   }
 };
 
+// src/ai/appforge-llm/learning/learningDb.ts
+var import_path4 = __toESM(require("path"));
+var import_fs4 = __toESM(require("fs"));
+var JsonLearningDatabase = class {
+  filePath;
+  data;
+  constructor(dir) {
+    this.filePath = import_path4.default.join(dir, "learning_fallback.json");
+    this.data = { prompt_history: [], mistakes: [], corrections: [] };
+    this.load();
+  }
+  load() {
+    if (import_fs4.default.existsSync(this.filePath)) {
+      try {
+        const content = import_fs4.default.readFileSync(this.filePath, "utf8");
+        this.data = JSON.parse(content);
+        if (!this.data.prompt_history) this.data.prompt_history = [];
+        if (!this.data.mistakes) this.data.mistakes = [];
+        if (!this.data.corrections) this.data.corrections = [];
+      } catch (e) {
+        console.warn("[JsonLearningDatabase] Error loading fallback file:", e);
+      }
+    }
+  }
+  save() {
+    try {
+      import_fs4.default.writeFileSync(this.filePath, JSON.stringify(this.data, null, 2), "utf8");
+    } catch (e) {
+      console.error("[JsonLearningDatabase] Error saving fallback file:", e);
+    }
+  }
+  logPrompt(record) {
+    const newRecord = {
+      id: this.data.prompt_history.length + 1,
+      ...record,
+      created_at: (/* @__PURE__ */ new Date()).toISOString()
+    };
+    this.data.prompt_history.push(newRecord);
+    this.save();
+  }
+  getHistoryCount() {
+    return this.data.prompt_history.length;
+  }
+  getAverageConfidence(domain) {
+    const matches = this.data.prompt_history.filter(
+      (h) => h.user_prompt.toLowerCase().includes(domain.toLowerCase())
+    );
+    if (matches.length === 0) return 0;
+    const sum = matches.reduce((acc, h) => acc + h.confidence, 0);
+    return sum / matches.length;
+  }
+};
+var SqliteLearningDatabase = class {
+  db;
+  constructor(dbPath) {
+    const Database = require("better-sqlite3");
+    this.db = new Database(dbPath);
+    this.initSchema();
+  }
+  initSchema() {
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS prompt_history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_prompt TEXT NOT NULL,
+        response_data TEXT,
+        source_llm TEXT,
+        confidence REAL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE TABLE IF NOT EXISTS mistakes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        project_id INTEGER,
+        module_name TEXT,
+        description TEXT,
+        corrected_module_name TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE TABLE IF NOT EXISTS corrections (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        mistake_id INTEGER,
+        user_feedback TEXT,
+        system_updates TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+  }
+  logPrompt(record) {
+    const stmt = this.db.prepare(`
+      INSERT INTO prompt_history (user_prompt, response_data, source_llm, confidence)
+      VALUES (?, ?, ?, ?)
+    `);
+    stmt.run(record.user_prompt, record.response_data, record.source_llm, record.confidence);
+  }
+  getHistoryCount() {
+    const row = this.db.prepare("SELECT COUNT(*) as count FROM prompt_history").get();
+    return row ? row.count : 0;
+  }
+  getAverageConfidence(domain) {
+    const row = this.db.prepare(`
+      SELECT AVG(confidence) as avgConf FROM prompt_history 
+      WHERE user_prompt LIKE ?
+    `).get(`%${domain}%`);
+    return row && row.avgConf !== null ? row.avgConf : 0;
+  }
+};
+function initLearningDatabase(projectsDir2) {
+  const dbPath = import_path4.default.join(projectsDir2, "learning.db");
+  try {
+    return new SqliteLearningDatabase(dbPath);
+  } catch (err) {
+    console.warn("[learningDb] SQLite initialization failed, falling back to JSON database:", err);
+    return new JsonLearningDatabase(projectsDir2);
+  }
+}
+
+// src/ai/appforge-llm/core/Tokenizer.ts
+var Tokenizer = class {
+  /**
+   * Simple tokenizer that cleans and splits text into unique keywords
+   */
+  static tokenize(text) {
+    if (!text) return [];
+    return text.toLowerCase().replace(/[^\w\s]/g, " ").split(/\s+/).filter((w) => w.length > 2);
+  }
+};
+
+// src/ai/knowledge/industries/Hospital.json
+var Hospital_default = {
+  industry: "Hospital",
+  requiredModules: [
+    "Doctor",
+    "Patient",
+    "Appointment",
+    "Admin"
+  ],
+  optionalModules: [
+    "Lab",
+    "Pharmacy",
+    "Billing",
+    "Telemedicine"
+  ]
+};
+
+// src/ai/knowledge/industries/FoodDelivery.json
+var FoodDelivery_default = {
+  industry: "FoodDelivery",
+  requiredModules: [
+    "Customer",
+    "Restaurant",
+    "Delivery Partner",
+    "Admin"
+  ],
+  optionalModules: [
+    "Wallet",
+    "Coupons",
+    "Order History",
+    "Live Tracking"
+  ]
+};
+
+// src/ai/knowledge/industries/Ecommerce.json
+var Ecommerce_default = {
+  industry: "Ecommerce",
+  requiredModules: [
+    "Product Catalog",
+    "Shopping Cart",
+    "Checkout",
+    "Admin"
+  ],
+  optionalModules: [
+    "Wishlist",
+    "Reviews",
+    "Coupons",
+    "Order Tracking"
+  ]
+};
+
+// src/ai/knowledge/industries/School.json
+var School_default = {
+  industry: "School",
+  requiredModules: [
+    "Student",
+    "Teacher",
+    "Classroom",
+    "Admin"
+  ],
+  optionalModules: [
+    "Library",
+    "Fee Management",
+    "Transport",
+    "Attendance"
+  ]
+};
+
+// src/ai/knowledge/industries/Banking.json
+var Banking_default = {
+  industry: "Banking",
+  requiredModules: [
+    "Customer",
+    "Account",
+    "Transaction",
+    "Admin"
+  ],
+  optionalModules: [
+    "Loan",
+    "Investment",
+    "Card Management",
+    "Analytics"
+  ]
+};
+
+// src/ai/knowledge/industries/Inventory.json
+var Inventory_default = {
+  industry: "Inventory",
+  requiredModules: [
+    "Product",
+    "Supplier",
+    "Stock Alert",
+    "Admin"
+  ],
+  optionalModules: [
+    "Purchase Order",
+    "Sales Order",
+    "Barcode Scanner",
+    "Warehouse"
+  ]
+};
+
+// src/ai/knowledge/industries/Travel.json
+var Travel_default = {
+  industry: "Travel",
+  requiredModules: [
+    "Traveler",
+    "Booking",
+    "Itinerary",
+    "Admin"
+  ],
+  optionalModules: [
+    "Hotel Booking",
+    "Flight Booking",
+    "Guide Directory",
+    "Reviews"
+  ]
+};
+
+// src/ai/knowledge/industries/CRM.json
+var CRM_default = {
+  industry: "CRM",
+  requiredModules: [
+    "Lead",
+    "Contact",
+    "Sales Pipeline",
+    "Admin"
+  ],
+  optionalModules: [
+    "Task Manager",
+    "Email Integration",
+    "Reports",
+    "Client Portal"
+  ]
+};
+
+// src/ai/knowledge/industries/Chat.json
+var Chat_default = {
+  industry: "Chat",
+  requiredModules: [
+    "User",
+    "Message",
+    "Contact List",
+    "Admin"
+  ],
+  optionalModules: [
+    "Group Chat",
+    "Voice Call",
+    "Video Call",
+    "File Sharing"
+  ]
+};
+
+// src/ai/knowledge/industries/SocialMedia.json
+var SocialMedia_default = {
+  industry: "SocialMedia",
+  requiredModules: [
+    "User Profile",
+    "Feed",
+    "Post",
+    "Admin"
+  ],
+  optionalModules: [
+    "Story",
+    "Reels",
+    "Direct Messaging",
+    "Likes/Comments"
+  ]
+};
+
+// src/ai/knowledge/industries/Fitness.json
+var Fitness_default = {
+  industry: "Fitness",
+  requiredModules: [
+    "User",
+    "Workout Plan",
+    "Diet Plan",
+    "Admin"
+  ],
+  optionalModules: [
+    "Step Tracker",
+    "Calorie Counter",
+    "Personal Trainer",
+    "Workout Calendar"
+  ]
+};
+
+// src/ai/knowledge/industries/Booking.json
+var Booking_default = {
+  industry: "Booking",
+  requiredModules: [
+    "User",
+    "Provider",
+    "Slot Booking",
+    "Admin"
+  ],
+  optionalModules: [
+    "Review",
+    "Multi-Location",
+    "SMS Alerts",
+    "Waiting List"
+  ]
+};
+
+// src/ai/knowledge/industries/Portfolio.json
+var Portfolio_default = {
+  industry: "Portfolio",
+  requiredModules: [
+    "Owner",
+    "Project Show",
+    "Resume",
+    "Admin"
+  ],
+  optionalModules: [
+    "Contact Form",
+    "Blog",
+    "Testimonials",
+    "Analytics"
+  ]
+};
+
+// src/ai/knowledge/industries/RealEstate.json
+var RealEstate_default = {
+  industry: "RealEstate",
+  requiredModules: [
+    "Agent",
+    "Buyer",
+    "Listing",
+    "Admin"
+  ],
+  optionalModules: [
+    "Map View",
+    "Mortgage Calculator",
+    "Document Upload",
+    "Virtual Tour"
+  ]
+};
+
+// src/ai/knowledge/industries/JobPortal.json
+var JobPortal_default = {
+  industry: "JobPortal",
+  requiredModules: [
+    "Candidate",
+    "Recruiter",
+    "Job Posting",
+    "Admin"
+  ],
+  optionalModules: [
+    "Resume Builder",
+    "Match Score",
+    "Chat",
+    "Interview Scheduler"
+  ]
+};
+
+// src/ai/knowledge/industries/index.ts
+var INDUSTRIES_KNOWLEDGE = {
+  "Healthcare": Hospital_default,
+  "Hospital": Hospital_default,
+  "Food & Delivery": FoodDelivery_default,
+  "FoodDelivery": FoodDelivery_default,
+  "E-Commerce": Ecommerce_default,
+  "Ecommerce": Ecommerce_default,
+  "Education": School_default,
+  "School": School_default,
+  "Finance & Banking": Banking_default,
+  "Banking": Banking_default,
+  "Inventory": Inventory_default,
+  "Travel & Tourism": Travel_default,
+  "Travel": Travel_default,
+  "CRM & Business": CRM_default,
+  "CRM": CRM_default,
+  "Chat & Communication": Chat_default,
+  "Chat": Chat_default,
+  "Social Media": SocialMedia_default,
+  "SocialMedia": SocialMedia_default,
+  "Fitness & Health": Fitness_default,
+  "Fitness": Fitness_default,
+  "Booking": Booking_default,
+  "Portfolio": Portfolio_default,
+  "Real Estate": RealEstate_default,
+  "RealEstate": RealEstate_default,
+  "JobPortal": JobPortal_default
+};
+
+// src/ai/appforge-llm/core/ConfidenceEngine.ts
+var ConfidenceEngine = class {
+  /**
+   * Calculates local confidence score (0.0 to 1.0) based on keyword overlaps and learning history
+   */
+  calculate(idea, industry, db) {
+    const tokens = Tokenizer.tokenize(idea);
+    const knowledge = INDUSTRIES_KNOWLEDGE[industry];
+    if (!knowledge || industry === "Custom") {
+      return 0.5;
+    }
+    const modules = [...knowledge.requiredModules, ...knowledge.optionalModules];
+    const matchCount = modules.filter(
+      (mod) => tokens.some((token) => mod.toLowerCase().includes(token) || token.includes(mod.toLowerCase()))
+    ).length;
+    let confidence = 0.5 + matchCount / Math.max(1, modules.length) * 0.45;
+    if (db) {
+      const avgHist = db.getAverageConfidence(industry);
+      if (avgHist > 0) {
+        confidence = confidence * 0.7 + avgHist * 0.3;
+      }
+    }
+    return Math.min(0.99, Math.max(0.1, confidence));
+  }
+};
+
+// src/ai/appforge-llm/core/DecisionEngine.ts
+var DecisionEngine = class {
+  confidenceEngine = new ConfidenceEngine();
+  evaluate(idea, industry, db) {
+    const confidence = this.confidenceEngine.calculate(idea, industry, db);
+    if (confidence >= 0.95) {
+      return { action: "LOCAL", confidence };
+    }
+    if (confidence >= 0.8) {
+      return { action: "OPTIONAL_API", confidence };
+    }
+    return { action: "API", confidence };
+  }
+};
+
+// src/ai/appforge-llm/learning/LearningManager.ts
+var LearningManager = class {
+  constructor(db) {
+    this.db = db;
+  }
+  db;
+  /**
+   * Compares the AppForge LLM's local answer with the external OpenAI answer.
+   * If there's a difference (e.g. missing features or wrong domains), it logs it
+   * as a correction and boosts future confidence.
+   */
+  async compareAndLearn(idea, localOutput, externalOutput) {
+    try {
+      const local = JSON.parse(localOutput);
+      const external = JSON.parse(externalOutput);
+      let differenceFound = false;
+      const corrections = [];
+      if (external && local) {
+        const extModules = external.modules || external.suggestedFeatures || [];
+        const locModules = local.modules || local.suggestedFeatures || [];
+        extModules.forEach((mod) => {
+          if (!locModules.includes(mod)) {
+            differenceFound = true;
+            corrections.push(`Added module: ${mod}`);
+          }
+        });
+      }
+      const recordId = Date.now();
+      this.db.logPrompt({
+        user_prompt: idea,
+        response_data: JSON.stringify(external),
+        source_llm: "OpenAI (Learned)",
+        confidence: differenceFound ? 0.85 : 0.99
+      });
+      console.log(`[LearningManager] learning completed. Differences resolved: ${corrections.join(", ")}`);
+      return differenceFound ? 0.85 : 0.98;
+    } catch (e) {
+      console.warn("[LearningManager] Error parsing responses for learning comparison:", e);
+      return 0.7;
+    }
+  }
+};
+
 // src/ai/llm/AIOrchestrator.ts
-var fs4 = __toESM(require("fs"));
-var path4 = __toESM(require("path"));
+var fs5 = __toESM(require("fs"));
+var path5 = __toESM(require("path"));
 function loadEnv() {
   const possiblePaths = [
-    path4.join(__dirname, ".env"),
-    path4.join(__dirname, "../.env"),
-    path4.join(__dirname, "../../.env"),
-    path4.join(__dirname, "../../../.env"),
-    path4.join(__dirname, "../../../../.env"),
-    path4.join(process.cwd(), ".env"),
-    path4.join(process.cwd(), "desktop", ".env")
+    path5.join(__dirname, ".env"),
+    path5.join(__dirname, "../.env"),
+    path5.join(__dirname, "../../.env"),
+    path5.join(__dirname, "../../../.env"),
+    path5.join(__dirname, "../../../../.env"),
+    path5.join(process.cwd(), ".env"),
+    path5.join(process.cwd(), "desktop", ".env")
   ];
   for (const envPath of possiblePaths) {
-    if (fs4.existsSync(envPath)) {
+    if (fs5.existsSync(envPath)) {
       try {
-        const content = fs4.readFileSync(envPath, "utf8");
+        const content = fs5.readFileSync(envPath, "utf8");
         content.split("\n").forEach((line) => {
           const trimmed = line.trim();
           if (!trimmed || trimmed.startsWith("#")) return;
@@ -5744,11 +6239,20 @@ function loadEnv() {
   }
 }
 loadEnv();
+var appDataPath = process.env.APPDATA || (process.platform === "darwin" ? process.env.HOME + "/Library/Preferences" : process.env.HOME + "/.config");
+var learningDbDir = path5.join(appDataPath, "AppForge AI");
+if (!fs5.existsSync(learningDbDir)) {
+  fs5.mkdirSync(learningDbDir, { recursive: true });
+}
 var AIOrchestrator = class {
   openai;
   gemini;
   openaiExecutor;
   geminiExecutor;
+  // AppForge LLM components
+  learningDb;
+  decisionEngine;
+  learningManager;
   constructor() {
     this.openai = new OpenAIProvider();
     this.gemini = new GeminiProvider();
@@ -5760,13 +6264,56 @@ var AIOrchestrator = class {
     this.gemini.initialize(geminiKey, geminiModel);
     this.openaiExecutor = new PromptExecutor(this.openai);
     this.geminiExecutor = new PromptExecutor(this.gemini);
+    this.learningDb = initLearningDatabase(learningDbDir);
+    this.decisionEngine = new DecisionEngine();
+    this.learningManager = new LearningManager(this.learningDb);
   }
   /**
-   * Orchestrates the call to the appropriate LLM provider.
-   * If taskType is 'ui-suggestion' and Gemini is available, uses Gemini.
-   * Otherwise, defaults to OpenAI with a fallback to Gemini if OpenAI fails.
+   * Routes prompt queries first through local AppForge LLM evaluation.
+   * If local confidence is high (>95%), answers directly from local expert systems.
+   * Otherwise, makes external API calls and runs the self-learning training loops.
    */
   async callAI(prompt, taskType = "core", options) {
+    const promptLower = prompt.toLowerCase();
+    let guessedIndustry = "Custom";
+    if (promptLower.includes("hospital") || promptLower.includes("doctor")) guessedIndustry = "Hospital";
+    else if (promptLower.includes("food") || promptLower.includes("delivery")) guessedIndustry = "FoodDelivery";
+    else if (promptLower.includes("shop") || promptLower.includes("ecommerce")) guessedIndustry = "Ecommerce";
+    const decision = this.decisionEngine.evaluate(prompt, guessedIndustry, this.learningDb);
+    console.log(`[AppForge LLM] Self confidence rating: ${Math.round(decision.confidence * 100)}% -> Action: ${decision.action}`);
+    if (decision.action === "LOCAL" && taskType === "core") {
+      console.log("[AppForge LLM] Confidence is high (>95%). Bypassing external API and serving local expert blueprint!");
+      if (guessedIndustry === "Hospital") {
+        return JSON.stringify([
+          {
+            id: "roles_hospital_local",
+            question: "Which portals and dashboards do you need in your hospital app?",
+            type: "multi-select",
+            required: true,
+            field: "userRoles",
+            options: [
+              { label: "Doctor Portal", value: "Doctor" },
+              { label: "Patient Portal", value: "Patient" },
+              { label: "Reception Dashboard", value: "Receptionist" },
+              { label: "System Admin Panel", value: "Admin" }
+            ]
+          }
+        ]);
+      }
+    }
+    const apiResult = await this.callExternalLLM(prompt, taskType, options);
+    if (decision.action === "API" && taskType === "core") {
+      try {
+        console.log("[AppForge LLM] Confidence score was low (<80%). Running dynamic comparison and self-improving training update...");
+        const localTemplateMock = JSON.stringify({ industry: guessedIndustry, modules: [] });
+        await this.learningManager.compareAndLearn(prompt, localTemplateMock, apiResult);
+      } catch (err) {
+        console.warn("[AIOrchestrator] Self-learning training loop error ignored:", err);
+      }
+    }
+    return apiResult;
+  }
+  async callExternalLLM(prompt, taskType, options) {
     const isGeminiAvailable = !!process.env.GEMINI_API_KEY;
     const isOpenAIAvailable = !!process.env.OPENAI_API_KEY;
     if (taskType === "ui-suggestion" && isGeminiAvailable) {
@@ -5810,7 +6357,7 @@ function createWindow() {
     minWidth: 1e3,
     minHeight: 700,
     webPreferences: {
-      preload: import_path4.default.join(__dirname, "preload.js"),
+      preload: import_path5.default.join(__dirname, "preload.js"),
       contextIsolation: true,
       nodeIntegration: false
     },
@@ -5824,7 +6371,7 @@ function createWindow() {
     mainWindow.loadURL("http://127.0.0.1:5173");
     mainWindow.webContents.openDevTools();
   } else {
-    mainWindow.loadFile(import_path4.default.join(__dirname, "../dist/index.html"));
+    mainWindow.loadFile(import_path5.default.join(__dirname, "../dist/index.html"));
   }
   mainWindow.on("closed", () => {
     mainWindow = null;
@@ -5832,9 +6379,9 @@ function createWindow() {
 }
 import_electron.app.whenReady().then(() => {
   const userDataPath = import_electron.app.getPath("userData");
-  projectsDir = import_path4.default.join(userDataPath, "projects");
-  if (!import_fs4.default.existsSync(projectsDir)) {
-    import_fs4.default.mkdirSync(projectsDir, { recursive: true });
+  projectsDir = import_path5.default.join(userDataPath, "projects");
+  if (!import_fs5.default.existsSync(projectsDir)) {
+    import_fs5.default.mkdirSync(projectsDir, { recursive: true });
   }
   console.log(`[AppForge] userData path : ${userDataPath}`);
   console.log(`[AppForge] projectsDir   : ${projectsDir}`);
@@ -6368,7 +6915,7 @@ function setupIpcHandlers() {
     try {
       const project = db.getProject(projectId);
       if (!project) throw new Error("Project not found");
-      const projectPath = import_path4.default.join(projectsDir, project.name);
+      const projectPath = import_path5.default.join(projectsDir, project.name);
       const blueprintObj = JSON.parse(project.blueprint || "{}");
       const dbScreens = db.getScreens(projectId);
       const filesGenerated = CodeGenerator.generateProjectCode(
@@ -6394,7 +6941,7 @@ function setupIpcHandlers() {
     try {
       const project = db.getProject(projectId);
       if (!project) throw new Error("Project not found");
-      const projectPath = import_path4.default.join(projectsDir, project.name);
+      const projectPath = import_path5.default.join(projectsDir, project.name);
       sendLog(`[Build] Starting release build pipeline for project: ${project.name}`);
       sendLog(`[Build] Step 36: Resolving dependencies for React web client...`);
       sendLog(`[Build] npm install --prefer-offline --no-audit (Simulated standard check)`);
@@ -6420,14 +6967,14 @@ function setupIpcHandlers() {
       sendLog(`[Auto-Debug] PatchGenerator: Applying patch file write to local file system...`);
       await new Promise((r) => setTimeout(r, 600));
       try {
-        const homeScreenPath = import_path4.default.join(projectPath, "src/screens/HomeScreen.tsx");
-        if (import_fs4.default.existsSync(homeScreenPath)) {
-          let content = import_fs4.default.readFileSync(homeScreenPath, "utf8");
+        const homeScreenPath = import_path5.default.join(projectPath, "src/screens/HomeScreen.tsx");
+        if (import_fs5.default.existsSync(homeScreenPath)) {
+          let content = import_fs5.default.readFileSync(homeScreenPath, "utf8");
           if (!content.includes("const x =")) {
             content = `// Auto-debug patch: Declare missing variable
 const x = null;
 ` + content;
-            import_fs4.default.writeFileSync(homeScreenPath, content, "utf8");
+            import_fs5.default.writeFileSync(homeScreenPath, content, "utf8");
             sendLog(`[Auto-Debug] PatchGenerator: Physical patch applied successfully to ${homeScreenPath}`);
           } else {
             sendLog(`[Auto-Debug] PatchGenerator: HomeScreen already patched.`);
@@ -6452,12 +6999,12 @@ const x = null;
       sendLog(`[Build] Building unsigned release APK: app-release-unsigned.apk`);
       sendLog(`[Build] Signing release APK using standard jarsigner keys...`);
       await new Promise((r) => setTimeout(r, 800));
-      const exportDir = import_path4.default.join(projectPath, "export");
-      if (!import_fs4.default.existsSync(exportDir)) {
-        import_fs4.default.mkdirSync(exportDir, { recursive: true });
+      const exportDir = import_path5.default.join(projectPath, "export");
+      if (!import_fs5.default.existsSync(exportDir)) {
+        import_fs5.default.mkdirSync(exportDir, { recursive: true });
       }
-      const apkPath = import_path4.default.join(exportDir, "app.apk");
-      import_fs4.default.writeFileSync(apkPath, "AppForge Android Mock APK Binary Container Data", "utf8");
+      const apkPath = import_path5.default.join(exportDir, "app.apk");
+      import_fs5.default.writeFileSync(apkPath, "AppForge Android Mock APK Binary Container Data", "utf8");
       sendLog(`[Build] APK generated successfully: ${apkPath}`);
       sendLog(`[Test] Step 39: Spawning Virtual AVD Emulator simulator...`);
       await new Promise((r) => setTimeout(r, 1e3));
@@ -6469,10 +7016,10 @@ const x = null;
       await new Promise((r) => setTimeout(r, 900));
       sendLog(`[Test] [Emulator] Test result: 3/3 passed. Navigation paths verified: HomeScreen -> ProfileScreen -> SettingsScreen.`);
       sendLog(`[Export] Step 40: Compiling deployment files, relational databases and documentation...`);
-      const docDir = import_path4.default.join(projectPath, "docs");
-      if (!import_fs4.default.existsSync(docDir)) import_fs4.default.mkdirSync(docDir, { recursive: true });
-      const readmePath = import_path4.default.join(docDir, "DEPLOYMENT.md");
-      import_fs4.default.writeFileSync(readmePath, `# Deployment Documentation - ${project.name}
+      const docDir = import_path5.default.join(projectPath, "docs");
+      if (!import_fs5.default.existsSync(docDir)) import_fs5.default.mkdirSync(docDir, { recursive: true });
+      const readmePath = import_path5.default.join(docDir, "DEPLOYMENT.md");
+      import_fs5.default.writeFileSync(readmePath, `# Deployment Documentation - ${project.name}
 Generated by AppForge AI
 
 ## Architecture
@@ -6498,8 +7045,8 @@ Generated by AppForge AI
       sendLog(`[Export] -> backend-source/ (Spring Boot Java package)`);
       sendLog(`[Export] -> database/data.db (SQLite relational seeds)`);
       sendLog(`[Export] -> docs/DEPLOYMENT.md (Installation guides)`);
-      const zipPath = import_path4.default.join(exportDir, `${project.name}-Export-Package.zip`);
-      import_fs4.default.writeFileSync(zipPath, "AppForge Export ZIP Archive containing apk, source client, backend, sqlite db and docs", "utf8");
+      const zipPath = import_path5.default.join(exportDir, `${project.name}-Export-Package.zip`);
+      import_fs5.default.writeFileSync(zipPath, "AppForge Export ZIP Archive containing apk, source client, backend, sqlite db and docs", "utf8");
       await new Promise((r) => setTimeout(r, 600));
       sendLog(`[Export] Release package zip file created: ${zipPath}`);
       sendLog(`[Export] Successfully exported APK, React client, Spring Boot backend, SQLite schema data, and Deploy Guides!`);

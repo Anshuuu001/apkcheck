@@ -1,0 +1,15 @@
+{
+  "industry": "Hospital",
+  "requiredModules": [
+    "Doctor",
+    "Patient",
+    "Appointment",
+    "Admin"
+  ],
+  "optionalModules": [
+    "Lab",
+    "Pharmacy",
+    "Billing",
+    "Telemedicine"
+  ]
+}

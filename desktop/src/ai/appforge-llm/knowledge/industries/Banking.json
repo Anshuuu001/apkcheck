@@ -1,0 +1,15 @@
+{
+  "industry": "Banking",
+  "requiredModules": [
+    "Customer",
+    "Account",
+    "Transaction",
+    "Admin"
+  ],
+  "optionalModules": [
+    "Loan",
+    "Investment",
+    "Card Management",
+    "Analytics"
+  ]
+}
