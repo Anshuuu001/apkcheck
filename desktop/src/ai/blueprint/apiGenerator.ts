@@ -59,7 +59,21 @@ export function buildAPIEndpoints(features: string[], authRequired: boolean): Ap
 
   features.forEach(feature => {
     const eps = featureEndpointMap[feature];
-    if (eps) eps.forEach(ep => addEndpoint(ep));
+    if (eps) {
+      eps.forEach(ep => addEndpoint(ep));
+    } else {
+      // Generate dynamic CRUD endpoints for custom features!
+      const tableName = feature.toLowerCase().replace(/[^a-z0-9_]/g, '');
+      const entityName = feature.split(/[-_]/).map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+      
+      if (tableName && tableName !== 'notifications' && tableName !== 'profiles' && tableName !== 'gps_tracking' && tableName !== 'payments') {
+        addEndpoint({ path: `/${tableName}`, method: 'GET', tag: entityName, summary: `List ${tableName} items`, auth: 'user', responseCode: 200 });
+        addEndpoint({ path: `/${tableName}`, method: 'POST', tag: entityName, summary: `Create new ${tableName} item`, auth: 'user', responseCode: 201 });
+        addEndpoint({ path: `/${tableName}/{id}`, method: 'GET', tag: entityName, summary: `Get ${tableName} item details`, auth: 'user', responseCode: 200 });
+        addEndpoint({ path: `/${tableName}/{id}`, method: 'PUT', tag: entityName, summary: `Update ${tableName} item`, auth: 'user', responseCode: 200 });
+        addEndpoint({ path: `/${tableName}/{id}`, method: 'DELETE', tag: entityName, summary: `Delete ${tableName} item`, auth: 'user', responseCode: 200 });
+      }
+    }
   });
 
   return endpoints;

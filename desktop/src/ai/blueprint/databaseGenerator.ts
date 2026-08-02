@@ -165,7 +165,26 @@ export function buildDatabase(features: string[], users: string[], authRequired:
 
   features.forEach(feature => {
     const tableDefs = featureTableMap[feature];
-    if (tableDefs) tableDefs.forEach(t => addTable(t));
+    if (tableDefs) {
+      tableDefs.forEach(t => addTable(t));
+    } else {
+      // Dynamic table generation for custom features!
+      const tableName = feature.toLowerCase().replace(/[^a-z0-9_]/g, '');
+      if (tableName && tableName !== 'notifications' && tableName !== 'profiles' && tableName !== 'gps_tracking' && tableName !== 'payments') {
+        addTable({
+          name: tableName,
+          comment: `Table for custom feature: ${feature}`,
+          fields: [
+            { name: 'id', type: 'BIGINT', nullable: false, primaryKey: true, autoIncrement: true },
+            { name: 'name', type: 'VARCHAR', length: 255, nullable: false },
+            { name: 'status', type: 'VARCHAR', length: 50, nullable: true },
+            { name: 'description', type: 'TEXT', nullable: true },
+            { name: 'created_at', type: 'TIMESTAMP', nullable: false, defaultValue: 'CURRENT_TIMESTAMP' },
+            { name: 'updated_at', type: 'TIMESTAMP', nullable: false, defaultValue: 'CURRENT_TIMESTAMP' }
+          ]
+        });
+      }
+    }
   });
 
   // Always add notifications if they're required
