@@ -62,37 +62,39 @@ export class IntentAnalyzer {
     // Heuristics fallback
     const lower = idea.toLowerCase();
     
-    if (lower.includes('build') || lower.includes('create') || lower.includes('make') || lower.includes('develop')) {
+    // Hinglish and English CREATE_APPLICATION
+    if (lower.includes('build') || lower.includes('create') || lower.includes('make') || lower.includes('develop') || 
+        lower.includes('banana') || lower.includes('banaye') || lower.includes('banado') || lower.includes('banaiye')) {
       return { intent: 'CREATE_APPLICATION', confidence: 0.9 };
     }
-    if (lower.includes('apk') || lower.includes('compile') || lower.includes('build apk')) {
+    if (lower.includes('apk') || lower.includes('compile') || lower.includes('build apk') || lower.includes('binary')) {
       return { intent: 'GENERATE_APK', confidence: 0.95 };
     }
-    if (lower.includes('backend') || lower.includes('spring boot') || lower.includes('controller')) {
+    if (lower.includes('backend') || lower.includes('spring boot') || lower.includes('controller') || lower.includes('java')) {
       return { intent: 'GENERATE_BACKEND', confidence: 0.9 };
     }
-    if (lower.includes('database') || lower.includes('mysql') || lower.includes('table') || lower.includes('sql')) {
+    if (lower.includes('database') || lower.includes('mysql') || lower.includes('table') || lower.includes('sql') || lower.includes('schema')) {
       return { intent: 'GENERATE_DATABASE', confidence: 0.9 };
     }
-    if (lower.includes('theme') || lower.includes('color') || lower.includes('style') || lower.includes('dark mode')) {
+    if (lower.includes('theme') || lower.includes('color') || lower.includes('style') || lower.includes('dark mode') || lower.includes('rang') || lower.includes('design')) {
       return { intent: 'CHANGE_THEME', confidence: 0.95 };
     }
-    if (lower.includes('add screen') || lower.includes('new screen') || lower.includes('create screen')) {
+    if (lower.includes('add screen') || lower.includes('new screen') || lower.includes('create screen') || lower.includes('screen jodo') || lower.includes('screen add')) {
       return { intent: 'ADD_SCREEN', confidence: 0.95 };
     }
-    if (lower.includes('delete screen') || lower.includes('remove screen')) {
+    if (lower.includes('delete screen') || lower.includes('remove screen') || lower.includes('screen hatao')) {
       return { intent: 'DELETE_SCREEN', confidence: 0.95 };
     }
-    if (lower.includes('add feature') || lower.includes('enable')) {
+    if (lower.includes('add feature') || lower.includes('enable') || lower.includes('feature jodo') || lower.includes('feature add') || lower.includes('daalo') || lower.includes('jodo')) {
       return { intent: 'ADD_FEATURE', confidence: 0.85 };
     }
-    if (lower.includes('remove feature') || lower.includes('disable')) {
+    if (lower.includes('remove feature') || lower.includes('disable') || lower.includes('hatao') || lower.includes('hata')) {
       return { intent: 'REMOVE_FEATURE', confidence: 0.85 };
     }
-    if (lower.includes('fix') || lower.includes('bug') || lower.includes('error') || lower.includes('debug')) {
+    if (lower.includes('fix') || lower.includes('bug') || lower.includes('error') || lower.includes('debug') || lower.includes('theek karo') || lower.includes('sudhar')) {
       return { intent: 'FIX_BUG', confidence: 0.9 };
     }
-    if (lower.includes('update') || lower.includes('modify') || lower.includes('change')) {
+    if (lower.includes('update') || lower.includes('modify') || lower.includes('change') || lower.includes('badalna') || lower.includes('badlo')) {
       return { intent: 'UPDATE_APPLICATION', confidence: 0.8 };
     }
 

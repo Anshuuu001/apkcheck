@@ -43,3 +43,7 @@ projects/*.db
 *.njsproj
 *.sln
 *.sw?
+
+# Backups & Git Backup directories
+.git.bak/
+desktop/.git.bak/
