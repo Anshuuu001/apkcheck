@@ -1,0 +1,15 @@
+{
+  "industry": "JobPortal",
+  "requiredModules": [
+    "Candidate",
+    "Recruiter",
+    "Job Posting",
+    "Admin"
+  ],
+  "optionalModules": [
+    "Resume Builder",
+    "Match Score",
+    "Chat",
+    "Interview Scheduler"
+  ]
+}

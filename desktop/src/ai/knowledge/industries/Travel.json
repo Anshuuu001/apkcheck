@@ -1,0 +1,15 @@
+{
+  "industry": "Travel",
+  "requiredModules": [
+    "Traveler",
+    "Booking",
+    "Itinerary",
+    "Admin"
+  ],
+  "optionalModules": [
+    "Hotel Booking",
+    "Flight Booking",
+    "Guide Directory",
+    "Reviews"
+  ]
+}

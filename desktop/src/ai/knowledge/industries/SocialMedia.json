@@ -1,0 +1,15 @@
+{
+  "industry": "SocialMedia",
+  "requiredModules": [
+    "User Profile",
+    "Feed",
+    "Post",
+    "Admin"
+  ],
+  "optionalModules": [
+    "Story",
+    "Reels",
+    "Direct Messaging",
+    "Likes/Comments"
+  ]
+}

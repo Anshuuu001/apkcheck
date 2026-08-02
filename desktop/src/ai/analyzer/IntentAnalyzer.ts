@@ -1,24 +1,46 @@
-export type IntentType = 'CREATE_APPLICATION' | 'MODIFY_APPLICATION' | 'ASK_QUESTION' | 'UNKNOWN';
+export type IntentType = 
+  | 'CREATE_APPLICATION' 
+  | 'UPDATE_APPLICATION' 
+  | 'ADD_FEATURE' 
+  | 'REMOVE_FEATURE' 
+  | 'FIX_BUG' 
+  | 'CHANGE_THEME' 
+  | 'ADD_SCREEN' 
+  | 'DELETE_SCREEN' 
+  | 'GENERATE_APK' 
+  | 'GENERATE_BACKEND' 
+  | 'GENERATE_DATABASE' 
+  | 'UNKNOWN';
 
 export interface IntentResult {
   intent: IntentType;
   confidence: number;
 }
 
-const INTENT_PROMPT = (idea: string) => `You are an expert app architect. Analyze this user message and determine if they want to build a new application, modify an existing application, ask a question, or if the intent is unknown.
-Return ONLY a JSON object with no markdown:
+const INTENT_PROMPT = (idea: string) => `You are an expert app architect. Analyze this user request and determine the user's intent.
+Possible intents:
+- CREATE_APPLICATION: Wants to build a new app from scratch.
+- UPDATE_APPLICATION: Wants to modify or update an existing application.
+- ADD_FEATURE: Wants to add a specific feature (e.g. Stripe, chat, biometric).
+- REMOVE_FEATURE: Wants to remove a specific feature.
+- FIX_BUG: Wants to debug or resolve a code error.
+- CHANGE_THEME: Wants to customize colors, fonts, or styling theme.
+- ADD_SCREEN: Wants to create a new layout screen.
+- DELETE_SCREEN: Wants to delete an existing screen.
+- GENERATE_APK: Wants to build the APK package.
+- GENERATE_BACKEND: Wants to export Spring Boot files.
+- GENERATE_DATABASE: Wants to configure or generate SQL database tables.
 
 USER MESSAGE: "${idea}"
 
-Return this exact JSON structure:
+Return ONLY a JSON object with no markdown:
 {
-  "intent": "CREATE_APPLICATION" | "MODIFY_APPLICATION" | "ASK_QUESTION" | "UNKNOWN",
+  "intent": "IntentType",
   "confidence": 0.95
 }`;
 
 export class IntentAnalyzer {
   async analyze(idea: string): Promise<IntentResult> {
-    // 1. Try LLM if available
     try {
       if (window.electronAPI && typeof window.electronAPI.callAI === 'function') {
         const response = await window.electronAPI.callAI(INTENT_PROMPT(idea));
@@ -37,24 +59,43 @@ export class IntentAnalyzer {
       console.warn('[IntentAnalyzer] LLM classification failed, falling back to heuristics:', e);
     }
 
-    // 2. Fallback heuristic matching
+    // Heuristics fallback
     const lower = idea.toLowerCase();
     
-    // Check modify keywords
-    if (lower.includes('add') || lower.includes('modify') || lower.includes('change') || lower.includes('update') || lower.includes('remove') || lower.includes('edit')) {
-      return { intent: 'MODIFY_APPLICATION', confidence: 0.8 };
+    if (lower.includes('build') || lower.includes('create') || lower.includes('make') || lower.includes('develop')) {
+      return { intent: 'CREATE_APPLICATION', confidence: 0.9 };
+    }
+    if (lower.includes('apk') || lower.includes('compile') || lower.includes('build apk')) {
+      return { intent: 'GENERATE_APK', confidence: 0.95 };
+    }
+    if (lower.includes('backend') || lower.includes('spring boot') || lower.includes('controller')) {
+      return { intent: 'GENERATE_BACKEND', confidence: 0.9 };
+    }
+    if (lower.includes('database') || lower.includes('mysql') || lower.includes('table') || lower.includes('sql')) {
+      return { intent: 'GENERATE_DATABASE', confidence: 0.9 };
+    }
+    if (lower.includes('theme') || lower.includes('color') || lower.includes('style') || lower.includes('dark mode')) {
+      return { intent: 'CHANGE_THEME', confidence: 0.95 };
+    }
+    if (lower.includes('add screen') || lower.includes('new screen') || lower.includes('create screen')) {
+      return { intent: 'ADD_SCREEN', confidence: 0.95 };
+    }
+    if (lower.includes('delete screen') || lower.includes('remove screen')) {
+      return { intent: 'DELETE_SCREEN', confidence: 0.95 };
+    }
+    if (lower.includes('add feature') || lower.includes('enable')) {
+      return { intent: 'ADD_FEATURE', confidence: 0.85 };
+    }
+    if (lower.includes('remove feature') || lower.includes('disable')) {
+      return { intent: 'REMOVE_FEATURE', confidence: 0.85 };
+    }
+    if (lower.includes('fix') || lower.includes('bug') || lower.includes('error') || lower.includes('debug')) {
+      return { intent: 'FIX_BUG', confidence: 0.9 };
+    }
+    if (lower.includes('update') || lower.includes('modify') || lower.includes('change')) {
+      return { intent: 'UPDATE_APPLICATION', confidence: 0.8 };
     }
 
-    // Check ask question keywords
-    if (lower.includes('how to') || lower.includes('what is') || lower.includes('why') || lower.includes('explain') || lower.includes('help')) {
-      return { intent: 'ASK_QUESTION', confidence: 0.75 };
-    }
-
-    // Default to CREATE_APPLICATION if they describe an app
-    if (lower.includes('app') || lower.includes('application') || lower.includes('system') || lower.includes('platform') || lower.includes('portal') || lower.includes('software')) {
-      return { intent: 'CREATE_APPLICATION', confidence: 0.85 };
-    }
-
-    return { intent: 'UNKNOWN', confidence: 0.5 };
+    return { intent: 'CREATE_APPLICATION', confidence: 0.7 };
   }
 }

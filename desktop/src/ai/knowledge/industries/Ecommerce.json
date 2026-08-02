@@ -1,0 +1,15 @@
+{
+  "industry": "Ecommerce",
+  "requiredModules": [
+    "Product Catalog",
+    "Shopping Cart",
+    "Checkout",
+    "Admin"
+  ],
+  "optionalModules": [
+    "Wishlist",
+    "Reviews",
+    "Coupons",
+    "Order Tracking"
+  ]
+}

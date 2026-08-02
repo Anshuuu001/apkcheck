@@ -1,0 +1,15 @@
+{
+  "industry": "School",
+  "requiredModules": [
+    "Student",
+    "Teacher",
+    "Classroom",
+    "Admin"
+  ],
+  "optionalModules": [
+    "Library",
+    "Fee Management",
+    "Transport",
+    "Attendance"
+  ]
+}

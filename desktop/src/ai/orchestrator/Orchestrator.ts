@@ -75,37 +75,36 @@ export class AppOrchestrator {
       const intentAnalyzer = new IntentAnalyzer();
       const domainClassifier = new DomainClassifier();
       const entityExtractor = new EntityExtractor();
-      const featureExtractor = new FeatureExtractor();
 
       // 1. Intent Analyzer
       const intentCheck = await intentAnalyzer.analyze(userIdea);
-      engineStore.addLog(`Intent detected: ${intentCheck.intent} (Confidence: ${Math.round(intentCheck.confidence * 100)}%)`);
-
+      
       // 2. Domain Classifier
       const domainCheck = domainClassifier.classify(userIdea);
-      engineStore.addLog(`Domain detected: ${domainCheck.industry}`);
+      
+      // 3. Entity Extractor
+      const entityResult = entityExtractor.extract(userIdea, domainCheck.industry);
 
-      // 3. Entity & Feature Extractor
-      const targetUsers = entityExtractor.extractRoles(userIdea, domainCheck.industry);
-      const suggestedFeatures = featureExtractor.extractFeatures(userIdea, domainCheck.industry);
+      const domainLabel = entityResult.domain;
+      const intentLabel = intentCheck.intent === 'CREATE_APPLICATION' ? 'Create Application' : intentCheck.intent;
+
+      engineStore.addLog(`✅ Intent:\n${intentLabel}`);
+      engineStore.addLog(`✅ Domain:\n${domainLabel}`);
 
       // Assemble unified intent result matching schema
       const appType = domainCheck.industry === 'Custom' ? 'Custom Application' : `${domainCheck.industry} Application`;
       const intentResult = {
         industry: domainCheck.industry,
         appType: appType,
-        targetUsers: targetUsers,
-        primaryGoal: `Manage a ${appType} workflow for ${targetUsers.join(' and ')}`,
-        suggestedFeatures: suggestedFeatures,
+        targetUsers: entityResult.modules.includes('Admin') ? ['Admin', 'User'] : ['User'],
+        primaryGoal: `Manage a ${appType} workflow.`,
+        suggestedFeatures: entityResult.modules,
         confidence: (intentCheck.confidence + domainCheck.confidence) / 2,
         rawIdea: userIdea
       };
       
       context.setIntent(intentResult);
       engineStore.setIntentResult(intentResult);
-
-      engineStore.addLog(`Target Users: ${targetUsers.join(', ')}`);
-      engineStore.addLog(`Suggested Features: ${suggestedFeatures.join(', ')}`);
       context.addLog('Finished Intent Analysis');
 
       await this.delay(600);
@@ -115,29 +114,15 @@ export class AppOrchestrator {
       engineStore.addLog('AI Reasoning Engine analyzing domain knowledge...');
       context.addLog('Started Reasoning Engine');
 
-      const reasoningEngine = new ReasoningEngine();
-      const reasoning = await reasoningEngine.reason(intentResult, intentResult.suggestedFeatures || []);
+      const reqAnalyzer = new RequirementAnalyzer();
+      const reqAnalysis = reqAnalyzer.analyze(userIdea, domainCheck.industry);
 
-      const logicEngine = new BusinessLogicEngine();
-      const flowAnalyzer = new FlowAnalyzer();
-      const businessRules = logicEngine.getRules(intentResult.industry, intentResult.suggestedFeatures || []);
-      const flowDeps = flowAnalyzer.checkDependencies(intentResult.suggestedFeatures || []);
+      engineStore.addLog(`✅ Required Modules:\n${reqAnalysis.requiredFeatures.join('\n')}`);
 
-      engineStore.addLog(`Domain: ${intentResult.industry} | Architecture: ${reasoning.architectureDecision.pattern}`);
-      engineStore.addLog(`Complexity: ${reasoning.estimatedComplexity} | Est. Screens: ${reasoning.estimatedScreenCount}`);
-      engineStore.addLog(`Business Logic: Decided ${businessRules.length} core validation rules.`);
-      engineStore.addLog(`Gap Analysis: ${reasoning.gapAnalysis.length} gaps found, ${reasoning.suggestedFeatures.length} features suggested`);
-      
-      if (reasoning.gapAnalysis.filter(g => g.severity === 'critical').length > 0) {
-        engineStore.addLog(`⚠️ Critical gaps: ${reasoning.gapAnalysis.filter(g => g.severity === 'critical').map(g => g.title).join(', ')}`);
-      }
-      
-      const unresolved = flowDeps.filter(d => !d.resolved);
-      if (unresolved.length > 0) {
-        engineStore.addLog(`⚠️ Flow warning: Missing dependencies: ${unresolved.map(d => `${d.module} depends on ${d.dependsOn}`).join(', ')}`);
-      }
+      const gapAnalyzer = new GapAnalyzer();
+      const missingFeatures = gapAnalyzer.analyze(reqAnalysis.detectedFeatures, domainCheck.industry);
 
-      engineStore.addLog(`Confidence Score: ${Math.round(reasoning.confidenceScore * 100)}%`);
+      engineStore.addLog(`\n⚠ Missing:\n${missingFeatures.join('\n')}`);
       context.addLog('Finished Reasoning Engine');
 
       await this.delay(500);
@@ -147,16 +132,12 @@ export class AppOrchestrator {
       engineStore.addLog('Analyzing custom requirements & generating follow-up interview...');
       context.addLog('Started Requirement Interview Generation');
 
-      const reqAnalyzer = new RequirementAnalyzer();
-      const portalChecks = reqAnalyzer.analyzePortals(intentResult, userIdea);
-      portalChecks.forEach(p => {
-        engineStore.addLog(`  Portal: ${p.name} -> ${p.detected ? '✅ Detected' : '❌ Missing'}`);
-      });
-
       const interviewEngine = new InterviewEngine();
-      const questions = await interviewEngine.getQuestions(intentResult);
+      const questions = interviewEngine.generateQuestions(missingFeatures, domainCheck.industry);
+
+      engineStore.addLog(`\n❓ Questions:\n${questions.map(q => q.question).join('\n')}`);
+
       engineStore.setInterviewQuestions(questions);
-      engineStore.addLog(`Interview prepared with ${questions.length} clarifying questions.`);
       context.addLog('Prepared interview questions');
 
       // Block until user submits answers

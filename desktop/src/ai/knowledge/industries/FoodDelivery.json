@@ -1,0 +1,15 @@
+{
+  "industry": "FoodDelivery",
+  "requiredModules": [
+    "Customer",
+    "Restaurant",
+    "Delivery Partner",
+    "Admin"
+  ],
+  "optionalModules": [
+    "Wallet",
+    "Coupons",
+    "Order History",
+    "Live Tracking"
+  ]
+}

@@ -1,45 +1,60 @@
-import type { IndustryType } from '../../blueprint/schema';
+import { INDUSTRIES_KNOWLEDGE } from '../knowledge/industries';
 
-export const INDUSTRY_ROLES: Record<IndustryType, string[]> = {
-  'Healthcare': ['Doctor', 'Patient', 'Admin', 'Nurse', 'Pharmacist', 'Receptionist'],
-  'Education': ['Student', 'Teacher', 'Admin', 'Parent', 'Principal'],
-  'E-Commerce': ['Customer', 'Seller', 'Admin', 'Delivery Agent'],
-  'Food & Delivery': ['Customer', 'Restaurant Owner', 'Delivery Driver', 'Admin'],
-  'Transportation': ['Passenger', 'Driver', 'Admin', 'Dispatcher'],
-  'Finance & Banking': ['Customer', 'Bank Agent', 'Admin', 'Auditor'],
-  'Real Estate': ['Buyer', 'Seller', 'Agent', 'Admin'],
-  'Social Media': ['User', 'Creator', 'Moderator', 'Admin'],
-  'Fitness & Health': ['Member', 'Trainer', 'Admin', 'Nutritionist'],
-  'Entertainment': ['User', 'Creator', 'Moderator', 'Admin'],
-  'CRM & Business': ['Sales Rep', 'Manager', 'Customer', 'Admin'],
-  'Chat & Communication': ['User', 'Admin', 'Moderator'],
-  'Travel & Tourism': ['Traveler', 'Agent', 'Hotel Manager', 'Admin'],
-  'Agriculture': ['Farmer', 'Buyer', 'Expert', 'Admin'],
-  'Manufacturing': ['Worker', 'Manager', 'Quality Inspector', 'Admin'],
-  'Custom': ['User', 'Admin'],
-};
+export interface EntityExtractionResult {
+  domain: string;
+  modules: string[];
+}
 
 export class EntityExtractor {
-  extractRoles(idea: string, industry: IndustryType): string[] {
-    const lower = idea.toLowerCase();
-    const defaults = INDUSTRY_ROLES[industry] || ['User', 'Admin'];
+  extract(idea: string, industry: string): EntityExtractionResult {
+    const lowerIdea = idea.toLowerCase();
+    const knowledge = INDUSTRIES_KNOWLEDGE[industry] || { industry: 'Custom', requiredModules: [], optionalModules: [] };
     
-    // Explicitly scan the user idea for any mentions of common roles
-    const detected = defaults.filter(role => 
-      lower.includes(role.toLowerCase()) || 
-      lower.includes(role.toLowerCase() + 's') // plural forms
-    );
+    // Explicitly scan the user idea for any mentions of modules
+    const modules: string[] = [];
 
-    // If we detected specific roles, make sure Admin is always available if needed,
-    // otherwise default to standard industry roles list.
-    if (detected.length > 0) {
-      if (!detected.includes('Admin') && defaults.includes('Admin')) {
-        detected.push('Admin');
+    // Check required modules of target industry
+    knowledge.requiredModules.forEach(mod => {
+      if (lowerIdea.includes(mod.toLowerCase()) || lowerIdea.includes(mod.toLowerCase() + 's')) {
+        modules.push(mod);
       }
-      return Array.from(new Set(detected));
-    }
+    });
 
-    // Default to first 3 roles of industry defaults if none explicitly detected
-    return defaults.slice(0, 3);
+    // Check optional modules of target industry
+    knowledge.optionalModules.forEach(mod => {
+      if (lowerIdea.includes(mod.toLowerCase()) || lowerIdea.includes(mod.toLowerCase() + 's')) {
+        modules.push(mod);
+      }
+    });
+
+    // Check common modules generally (e.g. Wallet, Payments, Live Tracking, Login, Billing)
+    const generalModules = [
+      { key: 'wallet', name: 'Wallet' },
+      { key: 'coupon', name: 'Coupons' },
+      { key: 'track', name: 'Live Tracking' },
+      { key: 'pay', name: 'Billing' },
+      { key: 'auth', name: 'Authentication' },
+      { key: 'login', name: 'Authentication' },
+      { key: 'video', name: 'Telemedicine' },
+      { key: 'chat', name: 'Chat' },
+    ];
+
+    generalModules.forEach(m => {
+      if (lowerIdea.includes(m.key) && !modules.includes(m.name)) {
+        modules.push(m.name);
+      }
+    });
+
+    // Clean up domain name string formatting (e.g. FoodDelivery -> Food Delivery)
+    let domainName = knowledge.industry;
+    if (domainName === 'FoodDelivery') domainName = 'Food Delivery';
+    else if (domainName === 'SocialMedia') domainName = 'Social Media';
+    else if (domainName === 'RealEstate') domainName = 'Real Estate';
+    else if (domainName === 'JobPortal') domainName = 'Job Portal';
+
+    return {
+      domain: domainName,
+      modules: Array.from(new Set(modules))
+    };
   }
 }

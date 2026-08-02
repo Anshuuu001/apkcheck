@@ -1,0 +1,15 @@
+{
+  "industry": "Fitness",
+  "requiredModules": [
+    "User",
+    "Workout Plan",
+    "Diet Plan",
+    "Admin"
+  ],
+  "optionalModules": [
+    "Step Tracker",
+    "Calorie Counter",
+    "Personal Trainer",
+    "Workout Calendar"
+  ]
+}
