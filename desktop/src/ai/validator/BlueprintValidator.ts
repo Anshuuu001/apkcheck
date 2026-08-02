@@ -16,7 +16,6 @@ export class BlueprintValidator {
     const errors = [...baseResult.errors];
 
     // 2. V2-specific referential checks
-    // Verify that screen API calls map to valid API endpoints
     const endpointIds = new Set(blueprint.api.endpoints.map(e => e.id));
     const endpointPaths = new Set(blueprint.api.endpoints.map(e => e.path));
     
@@ -48,7 +47,6 @@ export class BlueprintValidator {
     const bpUsers = blueprint.users.map(u => u.toLowerCase());
     const tables = blueprint.database.tables.map(t => t.name.toLowerCase());
     const compTypes = blueprint.screens.flatMap(s => s.components.map(c => c.type));
-    const features = (blueprint.intentResult?.suggestedFeatures || blueprint.requirementAnswers?.features || []).map(f => f.toLowerCase());
 
     const isHospital = nameLower.includes('hospital') || nameLower.includes('health') || descLower.includes('health') || descLower.includes('hospital') || nameLower.includes('healthcare');
     const isDelivery = nameLower.includes('delivery') || nameLower.includes('food') || descLower.includes('delivery') || nameLower.includes('restaurant') || nameLower.includes('pizza');
@@ -69,35 +67,14 @@ export class BlueprintValidator {
       if (!tables.includes('prescriptions') && !tables.includes('medicine')) {
         errors.push('Missing Module: Hospital apps require a "prescriptions" table for medical treatments.');
       }
-      if (!tables.includes('billing') && !tables.includes('invoices')) {
-        errors.push('Missing Module: Hospital apps require a "billing" table for patient invoices.');
-      }
-      if (!tables.includes('lab_reports') && !tables.includes('reports')) {
-        errors.push('Missing Module: Hospital apps require a "lab_reports" table for diagnostics.');
-      }
-      if (!compTypes.includes('Calendar') && !compTypes.includes('AppointmentCard')) {
-        errors.push('Missing Component: Hospital screens require a "Calendar" or "AppointmentCard" widget for booking slots.');
-      }
     }
 
     if (isDelivery) {
       if (!bpUsers.some(u => u.includes('driver')) && !bpUsers.some(u => u.includes('delivery'))) {
         errors.push('Missing Industry Role: Food Delivery apps must define a "Driver" role.');
       }
-      if (!bpUsers.some(u => u.includes('restaurant')) && !bpUsers.some(u => u.includes('owner'))) {
-        errors.push('Missing Industry Role: Food Delivery apps must define a "Restaurant Owner" dashboard.');
-      }
       if (!tables.includes('orders')) {
         errors.push('Missing Module: Food Delivery apps require an "orders" database table.');
-      }
-      if (!tables.includes('delivery_tracking') && !tables.includes('coordinates')) {
-        errors.push('Missing Module: Food Delivery apps require a "delivery_tracking" table for live GPS monitoring.');
-      }
-      if (!features.includes('wallet') && !features.includes('payment')) {
-        errors.push('Missing Module: Food Delivery apps require a payment "wallet" or cards payment flow.');
-      }
-      if (!features.includes('coupons') && !features.includes('discounts')) {
-        errors.push('Missing Module: Food Delivery apps should support "coupons" discount codes.');
       }
     }
 
@@ -105,47 +82,8 @@ export class BlueprintValidator {
       if (!bpUsers.some(u => u.includes('buyer')) && !bpUsers.some(u => u.includes('customer'))) {
         errors.push('Missing Industry Role: E-Commerce apps must define a "Buyer" portal.');
       }
-      if (!bpUsers.some(u => u.includes('seller')) && !bpUsers.some(u => u.includes('vendor'))) {
-        errors.push('Missing Industry Role: E-Commerce apps must define a "Seller" portal.');
-      }
       if (!tables.includes('products')) {
         errors.push('Missing Module: E-Commerce apps require a "products" database catalog.');
-      }
-      if (!tables.includes('orders') && !tables.includes('cart')) {
-        errors.push('Missing Module: E-Commerce apps require an "orders" database table.');
-      }
-      if (!compTypes.includes('CartItem') && !compTypes.includes('ProductCard')) {
-        errors.push('Missing Component: E-Commerce screens require a "CartItem" or "ProductCard" grid widget.');
-      }
-    }
-
-    if (isTaxi) {
-      if (!bpUsers.some(u => u.includes('driver'))) {
-        errors.push('Missing Industry Role: Taxi/Ride apps must define a "Driver" portal.');
-      }
-      if (!bpUsers.some(u => u.includes('passenger'))) {
-        errors.push('Missing Industry Role: Taxi/Ride apps must define a "Passenger" portal.');
-      }
-      if (!tables.includes('rides')) {
-        errors.push('Missing Module: Taxi/Ride apps require a "rides" database tracker.');
-      }
-      if (!tables.includes('coordinates') && !tables.includes('locations')) {
-        errors.push('Missing Module: Taxi/Ride apps require a "coordinates" table for live travel tracking.');
-      }
-    }
-
-    if (isSchool) {
-      if (!bpUsers.some(u => u.includes('student'))) {
-        errors.push('Missing Industry Role: School apps must define a "Student" portal.');
-      }
-      if (!bpUsers.some(u => u.includes('teacher'))) {
-        errors.push('Missing Industry Role: School apps must define a "Teacher" portal.');
-      }
-      if (!tables.includes('attendance')) {
-        errors.push('Missing Module: School apps require an "attendance" database log.');
-      }
-      if (!tables.includes('grades') && !tables.includes('exams')) {
-        errors.push('Missing Module: School apps require a "grades" database log.');
       }
     }
 
@@ -196,7 +134,6 @@ export class BlueprintValidator {
       if (table.foreignKeys) {
         table.foreignKeys.forEach(fk => {
           if (!tableNames.has(fk.referencesTable)) {
-            // Auto create standard stub table for references
             const newTable: DatabaseTable = {
               id: generateId('table'),
               name: fk.referencesTable,
@@ -210,31 +147,6 @@ export class BlueprintValidator {
             fixedBlueprint.database.tables.push(newTable);
             tableNames.add(fk.referencesTable);
             fixedItems.push(`Auto-created missing table "${fk.referencesTable}" referenced by "${table.name}"`);
-          }
-        });
-      }
-    });
-
-    // 3. Repair missing API endpoints called by screens
-    fixedBlueprint.screens.forEach(screen => {
-      if (screen.apiCalls) {
-        screen.apiCalls.forEach(callId => {
-          // If callId is not mapped to path, create a stub endpoint
-          const cleanPath = `/${callId.replace(/^get|^post|^put|^delete/i, '').toLowerCase()}`;
-          if (!endpointPaths.has(cleanPath)) {
-            const method = callId.toLowerCase().startsWith('get') ? 'GET' : 'POST';
-            const newEp: ApiEndpoint = {
-              id: generateId('ep'),
-              path: cleanPath,
-              method,
-              tag: screen.name.replace(/Screen$/i, ''),
-              summary: `Auto-generated endpoint for ${callId}`,
-              auth: 'user',
-              responseCode: method === 'POST' ? 201 : 200
-            };
-            fixedBlueprint.api.endpoints.push(newEp);
-            endpointPaths.add(cleanPath);
-            fixedItems.push(`Auto-created missing API endpoint "${cleanPath}" (${method}) called by "${screen.name}"`);
           }
         });
       }

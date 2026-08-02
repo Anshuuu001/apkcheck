@@ -6203,6 +6203,37 @@ var LearningManager = class {
   }
 };
 
+// src/ai/cache/PromptCache.ts
+var PromptCache = class {
+  static cache = /* @__PURE__ */ new Map();
+  /**
+   * Retrieves cached response for a prompt if it exists and has not expired
+   */
+  static get(prompt) {
+    const key = prompt.trim().toLowerCase();
+    const entry = this.cache.get(key);
+    if (!entry) return null;
+    if (Date.now() > entry.expires) {
+      this.cache.delete(key);
+      return null;
+    }
+    return entry.response;
+  }
+  /**
+   * Saves prompt-response pair to cache with dynamic TTL (defaults to 1 hour)
+   */
+  static set(prompt, response, ttlMs = 60 * 60 * 1e3) {
+    const key = prompt.trim().toLowerCase();
+    this.cache.set(key, {
+      response,
+      expires: Date.now() + ttlMs
+    });
+  }
+  static clear() {
+    this.cache.clear();
+  }
+};
+
 // src/ai/llm/AIOrchestrator.ts
 var fs5 = __toESM(require("fs"));
 var path5 = __toESM(require("path"));
@@ -6274,6 +6305,13 @@ var AIOrchestrator = class {
    * Otherwise, makes external API calls and runs the self-learning training loops.
    */
   async callAI(prompt, taskType = "core", options) {
+    if (taskType === "core") {
+      const cached = PromptCache.get(prompt);
+      if (cached) {
+        console.log("[AIOrchestrator] Prompt Cache hit! Bypassing all executions and returning cached response.");
+        return cached;
+      }
+    }
     const promptLower = prompt.toLowerCase();
     let guessedIndustry = "Custom";
     if (promptLower.includes("hospital") || promptLower.includes("doctor")) guessedIndustry = "Hospital";
@@ -6284,7 +6322,7 @@ var AIOrchestrator = class {
     if (decision.action === "LOCAL" && taskType === "core") {
       console.log("[AppForge LLM] Confidence is high (>95%). Bypassing external API and serving local expert blueprint!");
       if (guessedIndustry === "Hospital") {
-        return JSON.stringify([
+        const localResponse = JSON.stringify([
           {
             id: "roles_hospital_local",
             question: "Which portals and dashboards do you need in your hospital app?",
@@ -6299,9 +6337,14 @@ var AIOrchestrator = class {
             ]
           }
         ]);
+        PromptCache.set(prompt, localResponse);
+        return localResponse;
       }
     }
     const apiResult = await this.callExternalLLM(prompt, taskType, options);
+    if (taskType === "core") {
+      PromptCache.set(prompt, apiResult);
+    }
     if (decision.action === "API" && taskType === "core") {
       try {
         console.log("[AppForge LLM] Confidence score was low (<80%). Running dynamic comparison and self-improving training update...");

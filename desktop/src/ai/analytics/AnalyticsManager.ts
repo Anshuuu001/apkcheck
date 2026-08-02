@@ -1,5 +1,5 @@
 import type { AppBlueprint } from '../../blueprint/schema';
-import { BlueprintValidator } from '../blueprint/BlueprintValidator';
+import { BlueprintValidator } from '../validator/BlueprintValidator';
 
 export interface ProjectMetrics {
   overallHealth: number;

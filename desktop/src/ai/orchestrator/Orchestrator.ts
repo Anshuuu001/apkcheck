@@ -27,7 +27,7 @@ import { DatabasePlanner } from '../planner/DatabasePlanner';
 import { APIPlanner } from '../planner/APIPlanner';
 import { BusinessPlanner } from '../planner/BusinessPlanner';
 import { BlueprintEngine } from '../blueprint/BlueprintEngine';
-import { BlueprintValidator } from '../blueprint/BlueprintValidator';
+import { BlueprintValidator } from '../validator/BlueprintValidator';
 import { BlueprintExporter } from '../blueprint/BlueprintExporter';
 
 export class AppOrchestrator {

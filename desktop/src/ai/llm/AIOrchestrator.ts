@@ -5,6 +5,7 @@ import type { LLMRequestOptions } from './LLMProvider';
 import { initLearningDatabase, type LearningDatabase } from '../appforge-llm/learning/learningDb';
 import { DecisionEngine } from '../appforge-llm/core/DecisionEngine';
 import { LearningManager } from '../appforge-llm/learning/LearningManager';
+import { PromptCache } from '../cache/PromptCache';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -92,7 +93,16 @@ export class AIOrchestrator {
    * Otherwise, makes external API calls and runs the self-learning training loops.
    */
   async callAI(prompt: string, taskType: 'core' | 'ui-suggestion' = 'core', options?: LLMRequestOptions): Promise<string> {
-    // 1. Evaluate prompt using AppForge LLM core
+    // 1. Check prompt cache first
+    if (taskType === 'core') {
+      const cached = PromptCache.get(prompt);
+      if (cached) {
+        console.log('[AIOrchestrator] Prompt Cache hit! Bypassing all executions and returning cached response.');
+        return cached;
+      }
+    }
+
+    // 2. Evaluate prompt using AppForge LLM core
     const promptLower = prompt.toLowerCase();
     let guessedIndustry = 'Custom';
     if (promptLower.includes('hospital') || promptLower.includes('doctor')) guessedIndustry = 'Hospital';
@@ -105,9 +115,8 @@ export class AIOrchestrator {
     // Rule: Confidence >95% -> Local Resolution (No external API Call!)
     if (decision.action === 'LOCAL' && taskType === 'core') {
       console.log('[AppForge LLM] Confidence is high (>95%). Bypassing external API and serving local expert blueprint!');
-      // Returns local checklist questions dynamically mapping the domain
       if (guessedIndustry === 'Hospital') {
-        return JSON.stringify([
+        const localResponse = JSON.stringify([
           {
             id: 'roles_hospital_local',
             question: 'Which portals and dashboards do you need in your hospital app?',
@@ -122,11 +131,18 @@ export class AIOrchestrator {
             ]
           }
         ]);
+        PromptCache.set(prompt, localResponse);
+        return localResponse;
       }
     }
 
     // Optional or Required external API execution
     const apiResult = await this.callExternalLLM(prompt, taskType, options);
+
+    // Cache the API result to avoid redundant calls
+    if (taskType === 'core') {
+      PromptCache.set(prompt, apiResult);
+    }
 
     // Rule: Confidence <80% -> Learn and Save updates to local learning database!
     if (decision.action === 'API' && taskType === 'core') {
