@@ -12,7 +12,11 @@ export class Brain {
   private decisionEngine = new DecisionEngine();
   private interviewEngine = new InterviewEngine();
 
-  constructor(private db?: LearningDatabase) {}
+  private db?: LearningDatabase;
+
+  constructor(db?: LearningDatabase) {
+    this.db = db;
+  }
 
   /**
    * Directs request sequence: User Idea -> Brain -> IntentAnalyzer -> KnowledgeEngine -> ReasoningEngine -> DecisionEngine -> InterviewEngine
@@ -40,7 +44,7 @@ export class Brain {
 
     // 5. Gather missing gaps and toggle interview questions
     const missingModules = knowledge ? knowledge.recommendedFeatures.filter(f => !reasonedModules.includes(f)) : [];
-    const questions = this.interviewEngine.generateQuestions(industry, missingModules);
+    const questions = this.interviewEngine.generateQuestions(missingModules, industry);
 
     console.log(`[AppForge LLM - Brain] Pipeline executed. Confidence: ${Math.round(decision.confidence * 100)}%. Decision path: ${decision.action}`);
 

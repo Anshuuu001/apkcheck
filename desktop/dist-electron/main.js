@@ -6321,15 +6321,15 @@ var InterviewEngine = class {
 
 // src/ai/appforge-llm/core/Brain.ts
 var Brain = class {
-  constructor(db) {
-    this.db = db;
-  }
-  db;
   intentAnalyzer = new IntentAnalyzer();
   knowledgeEngine = new KnowledgeEngine();
   reasoningEngine = new ReasoningEngine();
   decisionEngine = new DecisionEngine();
   interviewEngine = new InterviewEngine();
+  db;
+  constructor(db) {
+    this.db = db;
+  }
   /**
    * Directs request sequence: User Idea -> Brain -> IntentAnalyzer -> KnowledgeEngine -> ReasoningEngine -> DecisionEngine -> InterviewEngine
    */
@@ -6340,7 +6340,7 @@ var Brain = class {
     const reasonedModules = this.reasoningEngine.inferModules(idea, baselineModules);
     const decision = this.decisionEngine.evaluate(idea, industry, this.db);
     const missingModules = knowledge ? knowledge.recommendedFeatures.filter((f) => !reasonedModules.includes(f)) : [];
-    const questions = this.interviewEngine.generateQuestions(industry, missingModules);
+    const questions = this.interviewEngine.generateQuestions(missingModules, industry);
     console.log(`[AppForge LLM - Brain] Pipeline executed. Confidence: ${Math.round(decision.confidence * 100)}%. Decision path: ${decision.action}`);
     return {
       intent: intentResult.intent,
