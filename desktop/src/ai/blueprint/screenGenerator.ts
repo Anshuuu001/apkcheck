@@ -206,6 +206,35 @@ export function buildScreensFromFeatures(
           screens.push(s);
         }
       });
+    } else {
+      // Generate a dynamic screen for custom/unmapped features!
+      const normalizedName = feature.replace(/[^a-zA-Z0-9]/g, '');
+      const screenName = normalizedName.charAt(0).toUpperCase() + normalizedName.slice(1) + 'Screen';
+      const screenTitle = feature.split(/[-_]/).map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+      
+      if (!screens.some(existing => existing.name === screenName)) {
+        screens.push({
+          id: generateId('screen'),
+          name: screenName,
+          type: 'list',
+          title: screenTitle,
+          route: `/${feature.toLowerCase().replace(/_/g, '-')}`,
+          description: `Custom screen for ${screenTitle} feature`,
+          userRoles: users,
+          guards: authRequired ? ['isAuthenticated'] : [],
+          components: [
+            { id: generateId('c'), type: 'TopBar', label: `${screenTitle} Header`, props: { title: screenTitle, showBack: true } },
+            { id: generateId('c'), type: 'Container', label: 'Content Scroll', props: {}, children: [
+              { id: generateId('c'), type: 'Card', label: 'Feature Info Card', props: {}, children: [
+                { id: generateId('c'), type: 'Heading', label: screenTitle, props: { level: 'h2' } },
+                { id: generateId('c'), type: 'Text', label: `Manage your ${screenTitle} module, views, and workflows here.`, props: {} }
+              ] },
+              { id: generateId('c'), type: 'List', label: 'Feature Items List', props: { itemsCount: 3, showChevron: true } }
+            ] }
+          ],
+          apiCalls: [`get${normalizedName.charAt(0).toUpperCase() + normalizedName.slice(1)}`]
+        });
+      }
     }
   });
 
