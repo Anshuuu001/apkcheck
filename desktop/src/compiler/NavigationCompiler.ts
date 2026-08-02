@@ -2,7 +2,7 @@ import type { NavigationPlan } from '../blueprint/schema';
 
 export class NavigationCompiler {
   static compile(plan: NavigationPlan): string {
-    const screens = plan.groups.flatMap(g => g.screens);
+    const screens = plan.groups.flatMap(g => g.routes.map(r => r.screenId));
     const imports = screens.map(s => `import ${s} from '../screens/${s}';`).join('\n');
     const routeItems = screens.map(s => `      <Stack.Screen name="${s}" component={${s}} />`).join('\n');
 

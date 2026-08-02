@@ -8,7 +8,7 @@ export class SpringCompiler {
     const files: Record<string, string> = {};
 
     plan.endpoints.forEach(ep => {
-      const entityName = ep.name || 'Record';
+      const entityName = ep.tag || 'Record';
       const cleanEntity = entityName.charAt(0).toUpperCase() + entityName.slice(1);
       
       // Controller

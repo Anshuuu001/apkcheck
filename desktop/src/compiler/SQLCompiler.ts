@@ -6,7 +6,7 @@ export class SQLCompiler {
     
     plan.tables.forEach(table => {
       sql += `CREATE TABLE \`${table.name}\` (\n`;
-      const colDefinitions = table.columns.map(col => {
+      const colDefinitions = table.fields.map(col => {
         let def = `  \`${col.name}\` ${col.type.toUpperCase()}`;
         if (col.primaryKey) def += ' PRIMARY KEY AUTO_INCREMENT';
         if (!col.nullable) def += ' NOT NULL';
@@ -16,7 +16,7 @@ export class SQLCompiler {
       
       if (table.foreignKeys && table.foreignKeys.length > 0) {
         table.foreignKeys.forEach(fk => {
-          sql += `,\n  FOREIGN KEY (\`${fk.column}\`) REFERENCES \`${fk.referencesTable}\`(\`id\`)`;
+          sql += `,\n  FOREIGN KEY (\`${fk.field}\`) REFERENCES \`${fk.referencesTable}\`(\`id\`)`;
         });
       }
       sql += '\n);\n\n';
