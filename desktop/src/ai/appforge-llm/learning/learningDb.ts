@@ -32,6 +32,25 @@ export interface LearningDatabase {
   // Build Memory methods
   logBuildError(errorSignature: string, appliedFix: string): void;
   findBuildFix(errorSignature: string): string | null;
+
+  // Project Knowledge Memory (Step 10)
+  saveProject(projectId: number, blueprintJson: string, generatedFiles: string[], rating?: number): void;
+  loadProject(projectId: number): ProjectMemoryRecord | null;
+  listProjects(): ProjectMemoryRecord[];
+  updateProjectRating(projectId: number, rating: number): void;
+}
+
+export interface ProjectMemoryRecord {
+  id?: number;
+  project_id: number;
+  blueprint_json: string;
+  generated_files: string;   // JSON array
+  user_changes?: string;     // JSON diff
+  error_log?: string;        // Build errors
+  fix_log?: string;          // Applied fixes
+  rating?: number;           // 1-5
+  created_at?: string;
+  updated_at?: string;
 }
 
 class JsonLearningDatabase implements LearningDatabase {
@@ -44,6 +63,7 @@ class JsonLearningDatabase implements LearningDatabase {
     experience_logs: { points: number; reason: string; created_at: string }[];
     blueprint_versions: { id: number; project_id: number; version: string; blueprint_json: string; description: string; created_at: string }[];
     build_memory: { id: number; error_signature: string; applied_fix: string; success_count: number; created_at: string }[];
+    project_memory: ProjectMemoryRecord[];
   };
 
   constructor(dir: string) {
@@ -55,7 +75,8 @@ class JsonLearningDatabase implements LearningDatabase {
       skills: {}, 
       experience_logs: [],
       blueprint_versions: [],
-      build_memory: []
+      build_memory: [],
+      project_memory: []
     };
     this.load();
   }
@@ -72,6 +93,7 @@ class JsonLearningDatabase implements LearningDatabase {
         if (!this.data.experience_logs) this.data.experience_logs = [];
         if (!this.data.blueprint_versions) this.data.blueprint_versions = [];
         if (!this.data.build_memory) this.data.build_memory = [];
+        if (!this.data.project_memory) this.data.project_memory = [];
       } catch (e) {
         console.warn('[JsonLearningDatabase] Error loading fallback file:', e);
       }
@@ -179,6 +201,37 @@ class JsonLearningDatabase implements LearningDatabase {
     const match = this.data.build_memory.find(b => errorSignature.toLowerCase().includes(b.error_signature.toLowerCase()));
     return match ? match.applied_fix : null;
   }
+
+  saveProject(projectId: number, blueprintJson: string, generatedFiles: string[], rating?: number): void {
+    const existing = this.data.project_memory.find(p => p.project_id === projectId);
+    if (existing) {
+      existing.blueprint_json = blueprintJson;
+      existing.generated_files = JSON.stringify(generatedFiles);
+      if (rating !== undefined) existing.rating = rating;
+    } else {
+      this.data.project_memory.push({
+        project_id: projectId,
+        blueprint_json: blueprintJson,
+        generated_files: JSON.stringify(generatedFiles),
+        rating,
+        created_at: new Date().toISOString(),
+      });
+    }
+    this.save();
+  }
+
+  loadProject(projectId: number): ProjectMemoryRecord | null {
+    return this.data.project_memory.find(p => p.project_id === projectId) ?? null;
+  }
+
+  listProjects(): ProjectMemoryRecord[] {
+    return [...this.data.project_memory];
+  }
+
+  updateProjectRating(projectId: number, rating: number): void {
+    const record = this.data.project_memory.find(p => p.project_id === projectId);
+    if (record) { record.rating = rating; this.save(); }
+  }
 }
 
 class SqliteLearningDatabase implements LearningDatabase {
@@ -241,6 +294,18 @@ class SqliteLearningDatabase implements LearningDatabase {
         applied_fix TEXT,
         success_count INTEGER DEFAULT 1,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE TABLE IF NOT EXISTS project_memory (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        project_id INTEGER UNIQUE,
+        blueprint_json TEXT,
+        generated_files TEXT,
+        user_changes TEXT,
+        error_log TEXT,
+        fix_log TEXT,
+        rating INTEGER,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
   }
@@ -333,6 +398,31 @@ class SqliteLearningDatabase implements LearningDatabase {
       WHERE ? LIKE '%' || error_signature || '%'
     `).get(errorSignature);
     return row ? row.applied_fix : null;
+  }
+
+  saveProject(projectId: number, blueprintJson: string, generatedFiles: string[], rating?: number): void {
+    const stmt = this.db.prepare(`
+      INSERT INTO project_memory (project_id, blueprint_json, generated_files, rating, updated_at)
+      VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+      ON CONFLICT(project_id) DO UPDATE SET
+        blueprint_json = excluded.blueprint_json,
+        generated_files = excluded.generated_files,
+        rating = COALESCE(excluded.rating, project_memory.rating),
+        updated_at = CURRENT_TIMESTAMP
+    `);
+    stmt.run(projectId, blueprintJson, JSON.stringify(generatedFiles), rating ?? null);
+  }
+
+  loadProject(projectId: number): ProjectMemoryRecord | null {
+    return this.db.prepare('SELECT * FROM project_memory WHERE project_id = ?').get(projectId) ?? null;
+  }
+
+  listProjects(): ProjectMemoryRecord[] {
+    return this.db.prepare('SELECT * FROM project_memory ORDER BY updated_at DESC').all();
+  }
+
+  updateProjectRating(projectId: number, rating: number): void {
+    this.db.prepare('UPDATE project_memory SET rating = ?, updated_at = CURRENT_TIMESTAMP WHERE project_id = ?').run(rating, projectId);
   }
 }
 

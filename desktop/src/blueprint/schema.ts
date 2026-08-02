@@ -369,6 +369,151 @@ export interface AppPermission {
   required: boolean;
 }
 
+// ─── Notifications ───────────────────────────────────────────────────────────
+
+export type NotificationChannel = 'push' | 'in-app' | 'email' | 'sms';
+
+export interface NotificationTemplate {
+  id: string;
+  name: string;
+  channel: NotificationChannel;
+  title: string;
+  body: string;
+  trigger: string;   // e.g., "on_appointment_created", "on_order_shipped"
+  roles: string[];   // Which roles receive this notification
+  data?: Record<string, string>; // extra payload fields
+}
+
+export interface NotificationConfig {
+  enabled: boolean;
+  channels: NotificationChannel[];
+  provider: 'firebase' | 'onesignal' | 'aws-sns' | 'none';
+  templates: NotificationTemplate[];
+}
+
+// ─── Validations ─────────────────────────────────────────────────────────────
+
+export type ValidationType =
+  | 'required' | 'minLength' | 'maxLength' | 'pattern' | 'email'
+  | 'phone' | 'url' | 'min' | 'max' | 'custom';
+
+export interface ValidationRule {
+  id: string;
+  screen: string;     // Screen name this rule applies to
+  field: string;      // Field name inside the form/component
+  type: ValidationType;
+  value?: string | number;    // e.g., minLength: 8
+  message: string;    // User-facing error message
+  condition?: string; // Optional: only validate if this condition is true
+}
+
+// ─── Assets ──────────────────────────────────────────────────────────────────
+
+export type AssetType = 'icon' | 'font' | 'image' | 'lottie' | 'splash' | 'logo';
+
+export interface AssetDeclaration {
+  id: string;
+  name: string;
+  type: AssetType;
+  source: 'bundled' | 'url' | 'generated';
+  path?: string;     // local path inside assets/
+  url?: string;      // remote URL
+  description?: string;
+}
+
+// ─── App Settings ─────────────────────────────────────────────────────────────
+
+export interface AppSettings {
+  defaultLanguage: string;        // e.g., "en", "hi", "ar"
+  supportedLanguages: string[];
+  darkModeSupport: boolean;
+  defaultThemeMode: 'light' | 'dark' | 'system';
+  cacheTtlSeconds: number;        // Default API response cache duration
+  sessionTimeoutMinutes: number;
+  allowGuestMode: boolean;
+  analyticsEnabled: boolean;
+  crashReportingEnabled: boolean;
+  forceUpdateEnabled: boolean;
+}
+
+// ─── Build Pipeline ──────────────────────────────────────────────────────────
+
+export type BuildStage =
+  | 'generate' | 'npm-install' | 'typescript' | 'lint' | 'gradle' | 'sign' | 'apk';
+
+export interface BuildStageConfig {
+  stage: BuildStage;
+  enabled: boolean;
+  failOnError: boolean;
+  retryCount: number;       // How many times to retry on failure
+  timeoutMs: number;
+}
+
+export interface BuildPipeline {
+  outputDir: string;        // e.g., "output/hospital-app"
+  stages: BuildStageConfig[];
+  signingConfig?: {
+    keyAlias: string;
+    storeFile: string;
+    keyPassword?: string;
+    storePassword?: string;
+  };
+  gradleConfig?: {
+    minSdkVersion: number;
+    targetSdkVersion: number;
+    compileSdkVersion: number;
+    versionCode: number;
+    versionName: string;
+  };
+}
+
+// ─── Project Metadata ────────────────────────────────────────────────────────
+
+export interface ProjectMetadata {
+  generatedAt: string;         // ISO timestamp of generation
+  lastEditedAt?: string;
+  generationDurationMs?: number;
+  aiConfidence: number;        // Overall AI confidence 0-100
+  reviewScore?: number;        // Score from AI Project Reviewer 0-100
+  userRating?: number;         // User satisfaction 1-5
+  buildCount: number;          // How many times this project was built
+  lastBuildStatus?: 'success' | 'failed' | 'never';
+  tags: string[];              // e.g., ["healthcare", "react-native", "offline"]
+}
+
+// ─── Project Review Report ───────────────────────────────────────────────────
+
+export interface ReviewIssue {
+  severity: 'high' | 'medium' | 'low';
+  description: string;
+  location?: string;   // e.g., "LoginScreen", "User table", "POST /auth/login"
+  suggestion: string;
+}
+
+export interface ReviewCategory {
+  score: number;       // 0-100
+  issues: ReviewIssue[];
+}
+
+export interface ReviewSuggestion {
+  priority: 'HIGH' | 'MEDIUM' | 'LOW';
+  action: string;
+  module: string;
+  impact: string;
+}
+
+export interface ProjectReviewReport {
+  overall: number;
+  security: ReviewCategory;
+  performance: ReviewCategory;
+  architecture: ReviewCategory;
+  database: ReviewCategory;
+  ui: ReviewCategory;
+  accessibility: ReviewCategory;
+  suggestions: ReviewSuggestion[];
+  generatedAt: string;
+}
+
 // ─── Requirement Answers ─────────────────────────────────────────────────────
 
 export interface RequirementAnswers {
@@ -438,19 +583,15 @@ export interface AppBlueprint {
   intentResult?: IntentResult;
   requirementAnswers?: RequirementAnswers;
 
-  // Build config
-  buildConfig?: {
-    minSdkVersion: number;
-    targetSdkVersion: number;
-    compileSdkVersion: number;
-    versionCode: number;
-    versionName: string;
-    signingConfig?: {
-      keyAlias: string;
-      storeFile: string;
-    };
-  };
+  // Extended Blueprint Sections (V1)
+  notifications: NotificationConfig;
+  validations: ValidationRule[];
+  assets: AssetDeclaration[];
+  settings: AppSettings;
+  buildPipeline: BuildPipeline;
+  metadata: ProjectMetadata;
 }
+
 
 // ─── Pipeline Stage ──────────────────────────────────────────────────────────
 

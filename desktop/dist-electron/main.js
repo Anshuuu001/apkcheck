@@ -5723,7 +5723,8 @@ var JsonLearningDatabase = class {
       skills: {},
       experience_logs: [],
       blueprint_versions: [],
-      build_memory: []
+      build_memory: [],
+      project_memory: []
     };
     this.load();
   }
@@ -5739,6 +5740,7 @@ var JsonLearningDatabase = class {
         if (!this.data.experience_logs) this.data.experience_logs = [];
         if (!this.data.blueprint_versions) this.data.blueprint_versions = [];
         if (!this.data.build_memory) this.data.build_memory = [];
+        if (!this.data.project_memory) this.data.project_memory = [];
       } catch (e) {
         console.warn("[JsonLearningDatabase] Error loading fallback file:", e);
       }
@@ -5833,6 +5835,36 @@ var JsonLearningDatabase = class {
     const match = this.data.build_memory.find((b) => errorSignature.toLowerCase().includes(b.error_signature.toLowerCase()));
     return match ? match.applied_fix : null;
   }
+  saveProject(projectId, blueprintJson, generatedFiles, rating) {
+    const existing = this.data.project_memory.find((p) => p.project_id === projectId);
+    if (existing) {
+      existing.blueprint_json = blueprintJson;
+      existing.generated_files = JSON.stringify(generatedFiles);
+      if (rating !== void 0) existing.rating = rating;
+    } else {
+      this.data.project_memory.push({
+        project_id: projectId,
+        blueprint_json: blueprintJson,
+        generated_files: JSON.stringify(generatedFiles),
+        rating,
+        created_at: (/* @__PURE__ */ new Date()).toISOString()
+      });
+    }
+    this.save();
+  }
+  loadProject(projectId) {
+    return this.data.project_memory.find((p) => p.project_id === projectId) ?? null;
+  }
+  listProjects() {
+    return [...this.data.project_memory];
+  }
+  updateProjectRating(projectId, rating) {
+    const record = this.data.project_memory.find((p) => p.project_id === projectId);
+    if (record) {
+      record.rating = rating;
+      this.save();
+    }
+  }
 };
 var SqliteLearningDatabase = class {
   db;
@@ -5892,6 +5924,18 @@ var SqliteLearningDatabase = class {
         applied_fix TEXT,
         success_count INTEGER DEFAULT 1,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE TABLE IF NOT EXISTS project_memory (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        project_id INTEGER UNIQUE,
+        blueprint_json TEXT,
+        generated_files TEXT,
+        user_changes TEXT,
+        error_log TEXT,
+        fix_log TEXT,
+        rating INTEGER,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
   }
@@ -5969,6 +6013,27 @@ var SqliteLearningDatabase = class {
       WHERE ? LIKE '%' || error_signature || '%'
     `).get(errorSignature);
     return row ? row.applied_fix : null;
+  }
+  saveProject(projectId, blueprintJson, generatedFiles, rating) {
+    const stmt = this.db.prepare(`
+      INSERT INTO project_memory (project_id, blueprint_json, generated_files, rating, updated_at)
+      VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+      ON CONFLICT(project_id) DO UPDATE SET
+        blueprint_json = excluded.blueprint_json,
+        generated_files = excluded.generated_files,
+        rating = COALESCE(excluded.rating, project_memory.rating),
+        updated_at = CURRENT_TIMESTAMP
+    `);
+    stmt.run(projectId, blueprintJson, JSON.stringify(generatedFiles), rating ?? null);
+  }
+  loadProject(projectId) {
+    return this.db.prepare("SELECT * FROM project_memory WHERE project_id = ?").get(projectId) ?? null;
+  }
+  listProjects() {
+    return this.db.prepare("SELECT * FROM project_memory ORDER BY updated_at DESC").all();
+  }
+  updateProjectRating(projectId, rating) {
+    this.db.prepare("UPDATE project_memory SET rating = ?, updated_at = CURRENT_TIMESTAMP WHERE project_id = ?").run(rating, projectId);
   }
 };
 function initLearningDatabase(projectsDir2) {
