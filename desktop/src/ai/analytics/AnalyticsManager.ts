@@ -13,6 +13,17 @@ export interface ProjectMetrics {
   databaseCoverage: number;
   estimatedBuildSuccess: number;
 
+  // Project Health Engine parameters
+  overallScore: number;
+  architectureScore: number;
+  uiScore: number;
+  backendScore: number;
+  databaseScore: number;
+  securityScore: number;
+  performanceScore: number;
+  scalabilityScore: number;
+  suggestions: string[];
+
   apkStatus: 'unbuilt' | 'building' | 'ready' | 'failed';
   warnings: string[];
 }
@@ -21,10 +32,11 @@ export class AnalyticsManager {
   private validator = new BlueprintValidator();
 
   /**
-   * Computes granular project health metrics
+   * Computes granular project health metrics and actionable recommendations
    */
   calculateMetrics(blueprint: AppBlueprint): ProjectMetrics {
     const warnings: string[] = [];
+    const suggestions: string[] = [];
 
     // 1. Requirement Completeness
     const reqCount = blueprint.requirementAnswers?.features?.length || blueprint.intentResult?.suggestedFeatures?.length || 0;
@@ -51,17 +63,55 @@ export class AnalyticsManager {
     const tableCount = blueprint.database?.tables?.length || 0;
     const databaseCoverage = Math.max(80, Math.min(100, 78 + tableCount * 3));
 
-    // 6. Estimated Build Success
+    // 6. Security Score
+    const hasAuth = blueprint.authRequired ?? true;
+    const securityScore = hasAuth ? 94 : 75;
+    if (!hasAuth) {
+      suggestions.push('Improve Authentication: Enable authentication guards and JWT configs.');
+    }
+
+    // 7. Performance Score
+    const hasPaging = blueprint.api?.endpoints?.some(e => e.path.includes('page') || e.path.includes('size')) ?? false;
+    const performanceScore = hasPaging ? 92 : 82;
+    if (!hasPaging) {
+      suggestions.push('Add Pagination: Implement pagination parameters on list/GET endpoints.');
+    }
+
+    // 8. Scalability Score
+    const scalabilityScore = tableCount > 5 ? 95 : 88;
+    if (tableCount <= 5) {
+      suggestions.push('Add Repository Pattern: Structure entity access modules with unified repositories.');
+    }
+
+    // Add general caching suggestion if cache is missing
+    const hasCache = blueprint.api?.endpoints?.some(e => e.path.includes('cache')) ?? false;
+    if (!hasCache) {
+      suggestions.push('Add Cache: Implement local/Redis caches for heavy GET query paths.');
+    }
+
+    // Add standard try-catch suggestion
+    suggestions.push('Add Error Handling: Attach global controller advice and try-catch filters.');
+
+    // Scores
+    const architectureScore = blueprintScore;
+    const uiScore = uiCoverage;
+    const backendScore = backendCoverage;
+    const databaseScore = databaseCoverage;
+
+    const overallScore = Math.round(
+      (architectureScore + uiScore + backendScore + databaseScore + securityScore + performanceScore + scalabilityScore) / 7
+    );
+
+    // Support legacy variables in UI
+    const previewScore = uiCoverage;
+    const codeQualityScore = databaseCoverage;
+    const overallHealth = overallScore;
+
     const estimatedBuildSuccess = Math.max(50, Math.round(
       (blueprintScore * 0.4) + 
       (requirementCompleteness * 0.3) + 
       (uiCoverage * 0.3)
     ));
-
-    // Support legacy variables in UI
-    const previewScore = uiCoverage;
-    const codeQualityScore = databaseCoverage;
-    const overallHealth = Math.round((blueprintScore + uiCoverage + databaseCoverage) / 3);
 
     return {
       overallHealth,
@@ -74,6 +124,16 @@ export class AnalyticsManager {
       backendCoverage,
       databaseCoverage,
       estimatedBuildSuccess,
+
+      overallScore,
+      architectureScore,
+      uiScore,
+      backendScore,
+      databaseScore,
+      securityScore,
+      performanceScore,
+      scalabilityScore,
+      suggestions,
       
       apkStatus: 'ready',
       warnings
