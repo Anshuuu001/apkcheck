@@ -27,7 +27,7 @@ export class AnalyticsManager {
     const warnings: string[] = [];
 
     // 1. Requirement Completeness
-    const reqCount = blueprint.features?.length || 0;
+    const reqCount = blueprint.requirementAnswers?.features?.length || blueprint.intentResult?.suggestedFeatures?.length || 0;
     const requirementCompleteness = Math.max(85, Math.min(100, 80 + reqCount * 3));
 
     // 2. Blueprint Score Calculation

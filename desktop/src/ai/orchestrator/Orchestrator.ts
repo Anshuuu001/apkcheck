@@ -13,13 +13,9 @@ import type { AppBlueprint } from '../../blueprint/schema';
 import { IntentAnalyzer } from '../analyzer/IntentAnalyzer';
 import { EntityExtractor } from '../analyzer/EntityExtractor';
 import { DomainClassifier } from '../analyzer/DomainClassifier';
-import { FeatureExtractor } from '../analyzer/FeatureExtractor';
 import { RequirementAnalyzer } from '../analyzer/RequirementAnalyzer';
 import { GapAnalyzer } from '../analyzer/GapAnalyzer';
 import { InterviewEngine } from '../interview/InterviewEngine';
-import { ReasoningEngine } from '../reasoning/ReasoningEngine';
-import { BusinessLogicEngine } from '../reasoning/BusinessLogicEngine';
-import { FlowAnalyzer } from '../reasoning/FlowAnalyzer';
 
 import { ScreenPlanner } from '../planner/ScreenPlanner';
 import { NavigationPlanner } from '../planner/NavigationPlanner';
