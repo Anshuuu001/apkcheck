@@ -1,0 +1,6 @@
+{
+  "name": "firebase",
+  "version": "1.0.0",
+  "description": "Firebase authentication and database services integration plugin",
+  "enabled": false
+}

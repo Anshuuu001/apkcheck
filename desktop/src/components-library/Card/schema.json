@@ -1,0 +1,16 @@
+{
+  "name": "Card",
+  "type": "Card",
+  "category": "display",
+  "properties": {
+    "elevation": {
+      "type": "string",
+      "enum": ["none", "sm", "md", "lg", "xl"],
+      "default": "md"
+    },
+    "padding": {
+      "type": "number",
+      "default": 14
+    }
+  }
+}

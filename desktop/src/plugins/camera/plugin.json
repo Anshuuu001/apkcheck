@@ -1,0 +1,6 @@
+{
+  "name": "camera",
+  "version": "1.0.0",
+  "description": "Device camera access and media image capture services integration plugin",
+  "enabled": false
+}

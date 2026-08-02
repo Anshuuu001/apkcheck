@@ -1,0 +1,6 @@
+{
+  "name": "ai",
+  "version": "1.0.0",
+  "description": "Generative LLM processing and semantic intent analysis services integration plugin",
+  "enabled": false
+}

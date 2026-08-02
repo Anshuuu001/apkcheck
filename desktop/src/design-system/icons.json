@@ -1,0 +1,25 @@
+{
+  "iconSet": "lucide",
+  "mappings": {
+    "home": "Home",
+    "dashboard": "LayoutDashboard",
+    "list": "List",
+    "search": "Search",
+    "chat": "MessageCircle",
+    "profile": "User",
+    "settings": "Settings",
+    "notification": "Bell",
+    "detail": "FileText",
+    "form": "ClipboardList",
+    "map": "Map",
+    "report": "BarChart",
+    "checkout": "ShoppingCart",
+    "auth": "Lock",
+    "splash": "Zap",
+    "onboarding": "BookOpen",
+    "calendar": "Calendar",
+    "pill": "Pill",
+    "wallet": "Wallet",
+    "card": "CreditCard"
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "payment",
+  "version": "1.0.0",
+  "description": "Stripe/Razorpay payment gateway services checkout processing integration plugin",
+  "enabled": false
+}

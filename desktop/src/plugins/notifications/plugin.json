@@ -1,0 +1,6 @@
+{
+  "name": "notifications",
+  "version": "1.0.0",
+  "description": "Push notification triggers and dynamic alerts dispatch services integration plugin",
+  "enabled": false
+}

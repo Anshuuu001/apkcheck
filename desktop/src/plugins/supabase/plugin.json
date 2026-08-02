@@ -1,0 +1,6 @@
+{
+  "name": "supabase",
+  "version": "1.0.0",
+  "description": "Supabase PostgreSQL database and user management authentication services integration plugin",
+  "enabled": false
+}

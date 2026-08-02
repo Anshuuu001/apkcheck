@@ -1,0 +1,20 @@
+{
+  "name": "Button",
+  "type": "Button",
+  "category": "input",
+  "properties": {
+    "label": {
+      "type": "string",
+      "default": "Button"
+    },
+    "variant": {
+      "type": "string",
+      "enum": ["primary", "outlined", "ghost", "danger"],
+      "default": "primary"
+    },
+    "fullWidth": {
+      "type": "boolean",
+      "default": false
+    }
+  }
+}

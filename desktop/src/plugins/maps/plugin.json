@@ -1,0 +1,6 @@
+{
+  "name": "maps",
+  "version": "1.0.0",
+  "description": "Google Maps geolocation and interactive maps representation services integration plugin",
+  "enabled": false
+}
