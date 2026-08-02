@@ -1,17 +1,6 @@
-/**
- * AppForge-AI — Requirement Engine (Stage 2)
- * 
- * Takes an IntentResult and generates smart, industry-specific interview questions.
- * These questions fill the gaps in the blueprint before generation starts.
- */
+import type { InterviewQuestion } from '../types/Requirement';
 
-import type { IntentResult, IndustryType } from '../../blueprint/schema';
-import type { InterviewQuestion } from '../../store/engineStore';
-import { INDUSTRY_ROLES } from '../intentAnalyzer/localClassifier';
-
-// ─── Question Templates by Industry ──────────────────────────────────────────
-
-const BASE_QUESTIONS: InterviewQuestion[] = [
+export const BASE_QUESTIONS: InterviewQuestion[] = [
   {
     id: 'auth',
     question: 'Does your app require user login & accounts?',
@@ -38,7 +27,7 @@ const BASE_QUESTIONS: InterviewQuestion[] = [
   },
 ];
 
-const INDUSTRY_QUESTIONS: Record<IndustryType, InterviewQuestion[]> = {
+export const INDUSTRY_QUESTIONS: Record<string, InterviewQuestion[]> = {
   'Healthcare': [
     {
       id: 'roles_healthcare',
@@ -94,14 +83,6 @@ const INDUSTRY_QUESTIONS: Record<IndustryType, InterviewQuestion[]> = {
       type: 'toggle',
       required: false,
       field: 'multi_language',
-    },
-    {
-      id: 'offlineSupport',
-      question: 'Should the app support Offline Mode?',
-      subtext: 'Local SQLite data storage with sync when back online',
-      type: 'toggle',
-      required: false,
-      field: 'offlineSupport',
     },
   ],
 
@@ -297,146 +278,6 @@ const INDUSTRY_QUESTIONS: Record<IndustryType, InterviewQuestion[]> = {
     },
   ],
 
-  'Fitness & Health': [
-    {
-      id: 'features_fitness',
-      question: 'Which fitness features do you need?',
-      type: 'multi-select',
-      required: true,
-      field: 'features',
-      options: [
-        { label: 'Workout Plans', value: 'workouts', icon: '💪' },
-        { label: 'Progress Tracking', value: 'progress', icon: '📈' },
-        { label: 'Diet & Nutrition', value: 'nutrition', icon: '🥗' },
-        { label: 'Step Counter', value: 'steps', icon: '👟' },
-        { label: 'Personal Trainer Chat', value: 'trainer_chat', icon: '💬' },
-        { label: 'Wearable Integration', value: 'wearable', icon: '⌚' },
-        { label: 'Meditation & Sleep', value: 'meditation', icon: '🧘' },
-        { label: 'Class Booking', value: 'class_booking', icon: '📅' },
-      ],
-    },
-    {
-      id: 'payment_fitness',
-      question: 'Do you need subscription/membership payments?',
-      type: 'toggle',
-      required: true,
-      field: 'paymentRequired',
-    },
-  ],
-
-  'Entertainment': [
-    {
-      id: 'features_entertainment',
-      question: 'What type of entertainment platform?',
-      type: 'single-select',
-      required: true,
-      field: 'features',
-      options: [
-        { label: 'Video Streaming', value: 'video_streaming', icon: '📺' },
-        { label: 'Music Streaming', value: 'music_streaming', icon: '🎵' },
-        { label: 'Podcast Platform', value: 'podcasts', icon: '🎙️' },
-        { label: 'Gaming Platform', value: 'gaming', icon: '🎮' },
-        { label: 'Event Ticketing', value: 'tickets', icon: '🎫' },
-        { label: 'Book Reading', value: 'ebooks', icon: '📚' },
-      ],
-    },
-  ],
-
-  'CRM & Business': [
-    {
-      id: 'features_crm',
-      question: 'Which business features do you need?',
-      type: 'multi-select',
-      required: true,
-      field: 'features',
-      options: [
-        { label: 'Lead Management', value: 'leads', icon: '🎯' },
-        { label: 'Contact Database', value: 'contacts', icon: '📇' },
-        { label: 'Sales Pipeline', value: 'pipeline', icon: '📊' },
-        { label: 'Task Management', value: 'tasks', icon: '✅' },
-        { label: 'Invoice & Billing', value: 'invoicing', icon: '🧾' },
-        { label: 'Reports & Analytics', value: 'reports', icon: '📈' },
-        { label: 'Email Integration', value: 'email', icon: '📧' },
-        { label: 'Team Collaboration', value: 'collaboration', icon: '👥' },
-      ],
-    },
-  ],
-
-  'Chat & Communication': [
-    {
-      id: 'features_chat',
-      question: 'Which communication features do you need?',
-      type: 'multi-select',
-      required: true,
-      field: 'features',
-      options: [
-        { label: 'Text Messaging', value: 'text_chat', icon: '💬' },
-        { label: 'Group Chats', value: 'group_chat', icon: '👥' },
-        { label: 'Voice Calls', value: 'voice', icon: '📞' },
-        { label: 'Video Calls', value: 'video', icon: '📹' },
-        { label: 'File Sharing', value: 'files', icon: '📎' },
-        { label: 'End-to-end Encryption', value: 'e2e', icon: '🔒' },
-        { label: 'Channels / Broadcast', value: 'channels', icon: '📢' },
-        { label: 'Bots / Automation', value: 'bots', icon: '🤖' },
-      ],
-    },
-  ],
-
-  'Travel & Tourism': [
-    {
-      id: 'features_travel',
-      question: 'Which travel features do you need?',
-      type: 'multi-select',
-      required: true,
-      field: 'features',
-      options: [
-        { label: 'Hotel Booking', value: 'hotels', icon: '🏨' },
-        { label: 'Flight Search', value: 'flights', icon: '✈️' },
-        { label: 'Tour Packages', value: 'packages', icon: '🗺️' },
-        { label: 'Itinerary Planner', value: 'itinerary', icon: '📅' },
-        { label: 'Local Experiences', value: 'experiences', icon: '🎭' },
-        { label: 'Reviews & Ratings', value: 'reviews', icon: '⭐' },
-        { label: 'Currency Converter', value: 'currency', icon: '💱' },
-      ],
-    },
-  ],
-
-  'Agriculture': [
-    {
-      id: 'features_agri',
-      question: 'Which agriculture features do you need?',
-      type: 'multi-select',
-      required: true,
-      field: 'features',
-      options: [
-        { label: 'Crop Management', value: 'crops', icon: '🌾' },
-        { label: 'Weather Updates', value: 'weather', icon: '🌤️' },
-        { label: 'Market Price Alerts', value: 'prices', icon: '📈' },
-        { label: 'Expert Consultation', value: 'experts', icon: '👨‍🌾' },
-        { label: 'Soil & Irrigation', value: 'soil', icon: '💧' },
-        { label: 'Sell Produce', value: 'marketplace', icon: '🏪' },
-      ],
-    },
-  ],
-
-  'Manufacturing': [
-    {
-      id: 'features_manufacturing',
-      question: 'Which manufacturing features do you need?',
-      type: 'multi-select',
-      required: true,
-      field: 'features',
-      options: [
-        { label: 'Production Orders', value: 'production', icon: '🏭' },
-        { label: 'Quality Control', value: 'quality', icon: '✅' },
-        { label: 'Inventory Management', value: 'inventory', icon: '📦' },
-        { label: 'Equipment Maintenance', value: 'maintenance', icon: '🔧' },
-        { label: 'Worker Attendance', value: 'attendance', icon: '👷' },
-        { label: 'Shipment Tracking', value: 'shipment', icon: '🚚' },
-      ],
-    },
-  ],
-
   'Custom': [
     {
       id: 'features_custom',
@@ -457,41 +298,3 @@ const INDUSTRY_QUESTIONS: Record<IndustryType, InterviewQuestion[]> = {
     },
   ],
 };
-
-// ─── Generate Questions ───────────────────────────────────────────────────────
-
-export function generateInterviewQuestions(intent: IntentResult): InterviewQuestion[] {
-  const industryQuestions = INDUSTRY_QUESTIONS[intent.industry] || INDUSTRY_QUESTIONS['Custom'];
-
-  // Always start with the roles question if not in industry-specific ones
-  const hasRolesQuestion = industryQuestions.some(q => q.field === 'userRoles');
-  const rolesQuestion: InterviewQuestion = {
-    id: 'roles_general',
-    question: 'Which user types will use your app?',
-    subtext: 'We detected these roles — select all that apply',
-    type: 'multi-select',
-    required: true,
-    field: 'userRoles',
-    options: INDUSTRY_ROLES[intent.industry].map((role) => ({
-      label: role,
-      value: role,
-      icon: '👤',
-    })),
-  };
-
-  const questions: InterviewQuestion[] = [
-    ...(!hasRolesQuestion ? [rolesQuestion] : []),
-    ...industryQuestions,
-    ...BASE_QUESTIONS,
-  ];
-
-  return questions;
-}
-
-// ─── AI-Enhanced Question Generation ─────────────────────────────────────────
-
-export async function generateSmartQuestions(intent: IntentResult): Promise<InterviewQuestion[]> {
-  // Local question generation is already industry-aware
-  // In a future version this can call AI to generate even more specific questions
-  return generateInterviewQuestions(intent);
-}

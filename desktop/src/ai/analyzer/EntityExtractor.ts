@@ -1,12 +1,23 @@
-/**
- * AppForge-AI — Entity Extractor (V2 Analyzer)
- * 
- * Extracts system entities, target user roles, and domain-specific terms
- * from the app idea.
- */
-
 import type { IndustryType } from '../../blueprint/schema';
-import { INDUSTRY_ROLES } from '../intentAnalyzer/localClassifier';
+
+export const INDUSTRY_ROLES: Record<IndustryType, string[]> = {
+  'Healthcare': ['Doctor', 'Patient', 'Admin', 'Nurse', 'Pharmacist', 'Receptionist'],
+  'Education': ['Student', 'Teacher', 'Admin', 'Parent', 'Principal'],
+  'E-Commerce': ['Customer', 'Seller', 'Admin', 'Delivery Agent'],
+  'Food & Delivery': ['Customer', 'Restaurant Owner', 'Delivery Driver', 'Admin'],
+  'Transportation': ['Passenger', 'Driver', 'Admin', 'Dispatcher'],
+  'Finance & Banking': ['Customer', 'Bank Agent', 'Admin', 'Auditor'],
+  'Real Estate': ['Buyer', 'Seller', 'Agent', 'Admin'],
+  'Social Media': ['User', 'Creator', 'Moderator', 'Admin'],
+  'Fitness & Health': ['Member', 'Trainer', 'Admin', 'Nutritionist'],
+  'Entertainment': ['User', 'Creator', 'Moderator', 'Admin'],
+  'CRM & Business': ['Sales Rep', 'Manager', 'Customer', 'Admin'],
+  'Chat & Communication': ['User', 'Admin', 'Moderator'],
+  'Travel & Tourism': ['Traveler', 'Agent', 'Hotel Manager', 'Admin'],
+  'Agriculture': ['Farmer', 'Buyer', 'Expert', 'Admin'],
+  'Manufacturing': ['Worker', 'Manager', 'Quality Inspector', 'Admin'],
+  'Custom': ['User', 'Admin'],
+};
 
 export class EntityExtractor {
   extractRoles(idea: string, industry: IndustryType): string[] {

@@ -9,9 +9,18 @@ import { useEngineStore } from '../../store/engineStore';
 import { useBlueprintStore } from '../../store/blueprintStore';
 import type { AppBlueprint } from '../../blueprint/schema';
 
-// Import V2 core components
-import { IntentAnalyzer } from '../intentAnalyzer';
+// Import Sprint 1 Analyzer & Reasoning Core Components
+import { IntentAnalyzer } from '../analyzer/IntentAnalyzer';
+import { EntityExtractor } from '../analyzer/EntityExtractor';
+import { DomainClassifier } from '../analyzer/DomainClassifier';
+import { FeatureExtractor } from '../analyzer/FeatureExtractor';
 import { RequirementAnalyzer } from '../analyzer/RequirementAnalyzer';
+import { GapAnalyzer } from '../analyzer/GapAnalyzer';
+import { InterviewEngine } from '../interview/InterviewEngine';
+import { ReasoningEngine } from '../reasoning/ReasoningEngine';
+import { BusinessLogicEngine } from '../reasoning/BusinessLogicEngine';
+import { FlowAnalyzer } from '../reasoning/FlowAnalyzer';
+
 import { ScreenPlanner } from '../planner/ScreenPlanner';
 import { NavigationPlanner } from '../planner/NavigationPlanner';
 import { DatabasePlanner } from '../planner/DatabasePlanner';
@@ -20,7 +29,6 @@ import { BusinessPlanner } from '../planner/BusinessPlanner';
 import { BlueprintEngine } from '../blueprint/BlueprintEngine';
 import { BlueprintValidator } from '../blueprint/BlueprintValidator';
 import { BlueprintExporter } from '../blueprint/BlueprintExporter';
-import { ReasoningEngine } from '../reasoning/ReasoningEngine';
 
 export class AppOrchestrator {
   private projectId: number;
@@ -59,19 +67,45 @@ export class AppOrchestrator {
     }
 
     try {
-      // ── Stage 1: Intent Analysis ──────────────────────────────────────────
+      // ── Stage 1: Intent Analysis & Entity Extraction ──────────────────────
       engineStore.setStage('intent-analysis');
       engineStore.addLog(`Analyzing user idea: "${userIdea}"`);
       context.addLog('Started Intent Analysis');
 
       const intentAnalyzer = new IntentAnalyzer();
-      const intentResult = await intentAnalyzer.analyze(userIdea);
-      context.setIntent(intentResult);
+      const domainClassifier = new DomainClassifier();
+      const entityExtractor = new EntityExtractor();
+      const featureExtractor = new FeatureExtractor();
+
+      // 1. Intent Analyzer
+      const intentCheck = await intentAnalyzer.analyze(userIdea);
+      engineStore.addLog(`Intent detected: ${intentCheck.intent} (Confidence: ${Math.round(intentCheck.confidence * 100)}%)`);
+
+      // 2. Domain Classifier
+      const domainCheck = domainClassifier.classify(userIdea);
+      engineStore.addLog(`Domain detected: ${domainCheck.industry}`);
+
+      // 3. Entity & Feature Extractor
+      const targetUsers = entityExtractor.extractRoles(userIdea, domainCheck.industry);
+      const suggestedFeatures = featureExtractor.extractFeatures(userIdea, domainCheck.industry);
+
+      // Assemble unified intent result matching schema
+      const appType = domainCheck.industry === 'Custom' ? 'Custom Application' : `${domainCheck.industry} Application`;
+      const intentResult = {
+        industry: domainCheck.industry,
+        appType: appType,
+        targetUsers: targetUsers,
+        primaryGoal: `Manage a ${appType} workflow for ${targetUsers.join(' and ')}`,
+        suggestedFeatures: suggestedFeatures,
+        confidence: (intentCheck.confidence + domainCheck.confidence) / 2,
+        rawIdea: userIdea
+      };
       
+      context.setIntent(intentResult);
       engineStore.setIntentResult(intentResult);
-      engineStore.addLog(`Classification: Industry = ${intentResult.industry}, Type = ${intentResult.appType}`);
-      engineStore.addLog(`Target Users: ${intentResult.targetUsers.join(', ')}`);
-      engineStore.addLog(`Confidence Score: ${Math.round(intentResult.confidence * 100)}%`);
+
+      engineStore.addLog(`Target Users: ${targetUsers.join(', ')}`);
+      engineStore.addLog(`Suggested Features: ${suggestedFeatures.join(', ')}`);
       context.addLog('Finished Intent Analysis');
 
       await this.delay(600);
@@ -84,13 +118,26 @@ export class AppOrchestrator {
       const reasoningEngine = new ReasoningEngine();
       const reasoning = await reasoningEngine.reason(intentResult, intentResult.suggestedFeatures || []);
 
+      const logicEngine = new BusinessLogicEngine();
+      const flowAnalyzer = new FlowAnalyzer();
+      const businessRules = logicEngine.getRules(intentResult.industry, intentResult.suggestedFeatures || []);
+      const flowDeps = flowAnalyzer.checkDependencies(intentResult.suggestedFeatures || []);
+
       engineStore.addLog(`Domain: ${intentResult.industry} | Architecture: ${reasoning.architectureDecision.pattern}`);
       engineStore.addLog(`Complexity: ${reasoning.estimatedComplexity} | Est. Screens: ${reasoning.estimatedScreenCount}`);
+      engineStore.addLog(`Business Logic: Decided ${businessRules.length} core validation rules.`);
       engineStore.addLog(`Gap Analysis: ${reasoning.gapAnalysis.length} gaps found, ${reasoning.suggestedFeatures.length} features suggested`);
+      
       if (reasoning.gapAnalysis.filter(g => g.severity === 'critical').length > 0) {
         engineStore.addLog(`⚠️ Critical gaps: ${reasoning.gapAnalysis.filter(g => g.severity === 'critical').map(g => g.title).join(', ')}`);
       }
-      engineStore.addLog(`Confidence: ${Math.round(reasoning.confidenceScore * 100)}%`);
+      
+      const unresolved = flowDeps.filter(d => !d.resolved);
+      if (unresolved.length > 0) {
+        engineStore.addLog(`⚠️ Flow warning: Missing dependencies: ${unresolved.map(d => `${d.module} depends on ${d.dependsOn}`).join(', ')}`);
+      }
+
+      engineStore.addLog(`Confidence Score: ${Math.round(reasoning.confidenceScore * 100)}%`);
       context.addLog('Finished Reasoning Engine');
 
       await this.delay(500);
@@ -101,9 +148,15 @@ export class AppOrchestrator {
       context.addLog('Started Requirement Interview Generation');
 
       const reqAnalyzer = new RequirementAnalyzer();
-      const questions = await reqAnalyzer.generateQuestions(intentResult);
+      const portalChecks = reqAnalyzer.analyzePortals(intentResult, userIdea);
+      portalChecks.forEach(p => {
+        engineStore.addLog(`  Portal: ${p.name} -> ${p.detected ? '✅ Detected' : '❌ Missing'}`);
+      });
+
+      const interviewEngine = new InterviewEngine();
+      const questions = await interviewEngine.getQuestions(intentResult);
       engineStore.setInterviewQuestions(questions);
-      engineStore.addLog(`Interview prepared with ${questions.length} questions.`);
+      engineStore.addLog(`Interview prepared with ${questions.length} clarifying questions.`);
       context.addLog('Prepared interview questions');
 
       // Block until user submits answers

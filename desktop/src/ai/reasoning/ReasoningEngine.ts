@@ -3,13 +3,11 @@
  * 
  * The "brain" of the AI pipeline. Takes raw intent and produces a structured
  * reasoning result that informs all downstream planners.
- * 
- * Flow: Idea → Intent → ★ REASONING ★ → Requirements → Planning → Blueprint
  */
 
 import type { IntentResult, IndustryType } from '../../blueprint/schema';
 import { INDUSTRY_STANDARDS, getDomainInsights, type DomainInsight } from './DomainKnowledge';
-import { analyzeGaps, type GapItem } from './GapAnalyzer';
+import { GapAnalyzer, type GapItem } from '../analyzer/GapAnalyzer';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -48,44 +46,28 @@ export interface ReasoningResult {
   confidenceScore: number;
 }
 
-// ─── Reasoning Engine ────────────────────────────────────────────────────────
-
 export class ReasoningEngine {
+  private gapAnalyzer = new GapAnalyzer();
 
-  /**
-   * Performs deep reasoning on the user's intent to produce structured analysis
-   * that informs all downstream planners (screens, DB, API, business logic).
-   */
   async reason(intent: IntentResult, userFeatures: string[] = []): Promise<ReasoningResult> {
     const industry = intent.industry;
     const standard = INDUSTRY_STANDARDS[industry] || INDUSTRY_STANDARDS['Custom'];
 
-    // 1. Domain insights — what does the AI know about this industry?
     const domainInsights = getDomainInsights(industry, userFeatures);
 
-    // 2. Gap analysis — what's missing?
-    const gapAnalysis = analyzeGaps(
+    const gapAnalysis = this.gapAnalyzer.analyze(
       industry,
       userFeatures,
       intent.targetUsers,
-      true, // authRequired assumed true as default reasoning
+      true, // authRequired assumed true
       userFeatures.some(f => ['billing', 'cart', 'payments', 'fees'].includes(f))
     );
 
-    // 3. Feature suggestions — AI-recommended additions
     const suggestedFeatures = this.buildSuggestions(industry, userFeatures, standard);
-
-    // 4. Architecture decision — what tech pattern fits?
     const architectureDecision = this.decideArchitecture(industry, userFeatures, standard);
-
-    // 5. Priority matrix — rank everything
     const priorityMatrix = this.buildPriorityMatrix(userFeatures, standard);
-
-    // 6. Estimate screen count and complexity
     const estimatedScreenCount = this.estimateScreenCount(userFeatures, standard);
     const estimatedComplexity = this.estimateComplexity(userFeatures, intent.targetUsers, standard);
-
-    // 7. Confidence score (how sure are we about our reasoning)
     const confidenceScore = this.calculateConfidence(intent, userFeatures, standard);
 
     return {
@@ -100,8 +82,6 @@ export class ReasoningEngine {
     };
   }
 
-  // ─── Private Helpers ─────────────────────────────────────────────────────
-
   private buildSuggestions(
     industry: IndustryType,
     userFeatures: string[],
@@ -109,7 +89,6 @@ export class ReasoningEngine {
   ): SuggestedFeature[] {
     const suggestions: SuggestedFeature[] = [];
 
-    // Must-have features user didn't request
     standard.mustHaveFeatures.forEach(feature => {
       if (!userFeatures.includes(feature)) {
         suggestions.push({
@@ -121,7 +100,6 @@ export class ReasoningEngine {
       }
     });
 
-    // Common features that would improve the app
     const topCommon = standard.commonFeatures.slice(0, 4);
     topCommon.forEach(feature => {
       if (!userFeatures.includes(feature)) {
@@ -134,7 +112,6 @@ export class ReasoningEngine {
       }
     });
 
-    // Always suggest notifications if not present
     if (!userFeatures.includes('notifications')) {
       suggestions.push({
         feature: 'notifications',
@@ -189,7 +166,6 @@ export class ReasoningEngine {
   ): PriorityItem[] {
     const matrix: PriorityItem[] = [];
 
-    // User-requested features are automatically must-have
     userFeatures.forEach(feature => {
       matrix.push({
         feature,
@@ -198,7 +174,6 @@ export class ReasoningEngine {
       });
     });
 
-    // Must-haves not requested by user
     standard.mustHaveFeatures.forEach(feature => {
       if (!userFeatures.includes(feature)) {
         matrix.push({
@@ -216,13 +191,9 @@ export class ReasoningEngine {
     userFeatures: string[],
     standard: typeof INDUSTRY_STANDARDS[IndustryType]
   ): number {
-    // Base: 3 screens (splash, login, home)
     let count = 3;
-    // Each feature adds ~1.5 screens on average
     count += Math.ceil(userFeatures.length * 1.5);
-    // Profile screen
     count += 1;
-    // Clamp to industry range
     return Math.max(standard.typicalScreenCount.min, Math.min(count, standard.typicalScreenCount.max));
   }
 
@@ -250,13 +221,11 @@ export class ReasoningEngine {
   ): number {
     let confidence = intent.confidence;
 
-    // Boost confidence if user features align with industry standards
     const overlap = userFeatures.filter(f =>
       [...standard.mustHaveFeatures, ...standard.commonFeatures].includes(f)
     );
     confidence += (overlap.length / Math.max(userFeatures.length, 1)) * 0.15;
 
-    // Cap at 0.98
     return Math.min(confidence, 0.98);
   }
 }
