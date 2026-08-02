@@ -5716,7 +5716,7 @@ var JsonLearningDatabase = class {
   data;
   constructor(dir) {
     this.filePath = import_path4.default.join(dir, "learning_fallback.json");
-    this.data = { prompt_history: [], mistakes: [], corrections: [] };
+    this.data = { prompt_history: [], mistakes: [], corrections: [], skills: {}, experience_logs: [] };
     this.load();
   }
   load() {
@@ -5727,6 +5727,8 @@ var JsonLearningDatabase = class {
         if (!this.data.prompt_history) this.data.prompt_history = [];
         if (!this.data.mistakes) this.data.mistakes = [];
         if (!this.data.corrections) this.data.corrections = [];
+        if (!this.data.skills) this.data.skills = {};
+        if (!this.data.experience_logs) this.data.experience_logs = [];
       } catch (e) {
         console.warn("[JsonLearningDatabase] Error loading fallback file:", e);
       }
@@ -5758,6 +5760,34 @@ var JsonLearningDatabase = class {
     if (matches.length === 0) return 0;
     const sum = matches.reduce((acc, h) => acc + h.confidence, 0);
     return sum / matches.length;
+  }
+  recordXP(points, reason) {
+    this.data.experience_logs.push({
+      points,
+      reason,
+      created_at: (/* @__PURE__ */ new Date()).toISOString()
+    });
+    this.save();
+  }
+  upgradeSkill(skillName, xpEarned) {
+    if (!this.data.skills[skillName]) {
+      this.data.skills[skillName] = { level: 1, xp_points: 0 };
+    }
+    const skill = this.data.skills[skillName];
+    skill.xp_points += xpEarned;
+    const newLevel = Math.max(1, Math.floor(skill.xp_points / 100) + 1);
+    if (newLevel > skill.level) {
+      skill.level = newLevel;
+    }
+    this.save();
+    return { level: skill.level, totalXp: skill.xp_points };
+  }
+  getSkillLevels() {
+    const res = {};
+    Object.keys(this.data.skills).forEach((k) => {
+      res[k] = this.data.skills[k].level;
+    });
+    return res;
   }
 };
 var SqliteLearningDatabase = class {
@@ -5792,6 +5822,19 @@ var SqliteLearningDatabase = class {
         system_updates TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
+      CREATE TABLE IF NOT EXISTS ai_skills (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        skill_name TEXT UNIQUE,
+        level INTEGER DEFAULT 1,
+        xp_points INTEGER DEFAULT 0,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE TABLE IF NOT EXISTS ai_experience (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        xp_earned INTEGER,
+        reason TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
     `);
   }
   logPrompt(record) {
@@ -5811,6 +5854,32 @@ var SqliteLearningDatabase = class {
       WHERE user_prompt LIKE ?
     `).get(`%${domain}%`);
     return row && row.avgConf !== null ? row.avgConf : 0;
+  }
+  recordXP(points, reason) {
+    const stmt = this.db.prepare("INSERT INTO ai_experience (xp_earned, reason) VALUES (?, ?)");
+    stmt.run(points, reason);
+  }
+  upgradeSkill(skillName, xpEarned) {
+    const getSkill = this.db.prepare("SELECT level, xp_points FROM ai_skills WHERE skill_name = ?");
+    let skill = getSkill.get(skillName);
+    if (!skill) {
+      const insert = this.db.prepare("INSERT INTO ai_skills (skill_name, level, xp_points) VALUES (?, 1, 0)");
+      insert.run(skillName);
+      skill = { level: 1, xp_points: 0 };
+    }
+    const nextXp = skill.xp_points + xpEarned;
+    const nextLevel = Math.max(1, Math.floor(nextXp / 100) + 1);
+    const update = this.db.prepare("UPDATE ai_skills SET level = ?, xp_points = ?, updated_at = CURRENT_TIMESTAMP WHERE skill_name = ?");
+    update.run(nextLevel, nextXp, skillName);
+    return { level: nextLevel, totalXp: nextXp };
+  }
+  getSkillLevels() {
+    const rows = this.db.prepare("SELECT skill_name, level FROM ai_skills").all();
+    const res = {};
+    rows.forEach((r) => {
+      res[r.skill_name] = r.level;
+    });
+    return res;
   }
 };
 function initLearningDatabase(projectsDir2) {

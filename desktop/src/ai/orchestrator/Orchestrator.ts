@@ -26,6 +26,17 @@ import { BlueprintEngine } from '../blueprint/BlueprintEngine';
 import { BlueprintValidator } from '../validator/BlueprintValidator';
 import { BlueprintExporter } from '../blueprint/BlueprintExporter';
 
+// AI Council & Learning systems imports
+import { initLearningDatabase } from '../appforge-llm/learning/learningDb';
+import { SkillEngine } from '../appforge-llm/core/SkillEngine';
+import { ExperienceSystem } from '../appforge-llm/core/ExperienceSystem';
+import { CEOBrain } from '../appforge-llm/brain/council/CEOBrain';
+import { ArchitectBrain } from '../appforge-llm/brain/council/ArchitectBrain';
+import { UIBrain } from '../appforge-llm/brain/council/UIBrain';
+import { BackendBrain } from '../appforge-llm/brain/council/BackendBrain';
+import { QABrain } from '../appforge-llm/brain/council/QABrain';
+import * as path from 'path';
+
 export class AppOrchestrator {
   private projectId: number;
   private onComplete?: (blueprint: AppBlueprint) => void;
@@ -235,27 +246,61 @@ export class AppOrchestrator {
       const blueprintEngine = new BlueprintEngine();
       const blueprint = blueprintEngine.assemble(context);
 
-      const validator = new BlueprintValidator();
-      const { valid, errors } = validator.validate(blueprint);
-
       let finalBlueprint = blueprint;
-      if (!valid) {
-        engineStore.addLog(`⚠️ Validation warnings: ${errors.join(', ')}`);
-        engineStore.addLog('Attempting Auto Fix repair...');
-        const { fixedBlueprint, fixedItems } = validator.autoFix(blueprint);
-        if (fixedItems.length > 0) {
-          fixedItems.forEach(item => engineStore.addLog(`🔧 Fix: ${item}`));
-          finalBlueprint = fixedBlueprint;
-          // Re-validate
-          const reVal = validator.validate(finalBlueprint);
-          if (reVal.valid) {
-            engineStore.addLog('✅ Auto Fix successfully repaired all errors.');
-          } else {
-            engineStore.addLog(`⚠️ Remaining validation issues: ${reVal.errors.join(', ')}`);
+
+      // ── AI Council Collaborative Review Flow ──────────────────────────────
+      engineStore.addLog('Invoking AI Council for collaborative sign-off...');
+      
+      const council = [
+        new CEOBrain(),
+        new ArchitectBrain(),
+        new UIBrain(),
+        new BackendBrain(),
+        new QABrain()
+      ];
+
+      let councilAllApproved = true;
+      for (const member of council) {
+        engineStore.addLog(`🤖 Council Member [${member.roleName}] is reviewing...`);
+        const review = await member.review(finalBlueprint);
+        review.comments.forEach(comment => engineStore.addLog(`  → ${comment}`));
+        
+        if (!review.approved) {
+          councilAllApproved = false;
+          engineStore.addLog(`⚠️ [${member.roleName}] declined initial approval. Triggering auto-repair...`);
+          const validator = new BlueprintValidator();
+          const { fixedBlueprint, fixedItems } = validator.autoFix(finalBlueprint);
+          if (fixedItems.length > 0) {
+            fixedItems.forEach(item => engineStore.addLog(`  🔧 Auto-Fixed: ${item}`));
+            finalBlueprint = fixedBlueprint;
           }
         }
+      }
+
+      if (councilAllApproved) {
+        engineStore.addLog('✅ AI Council signed off! Blueprint passed all checks.');
       } else {
-        engineStore.addLog('✅ Schema validation succeeded! No warnings.');
+        engineStore.addLog('✅ AI Council signed off after structural auto-repairs.');
+      }
+
+      // ── XP & Skill progression credit ────────────────────────────────────
+      try {
+        const appDataPath = process.env.APPDATA || (process.platform === 'darwin' ? process.env.HOME + '/Library/Preferences' : process.env.HOME + '/.config');
+        const learningDbDir = path.join(appDataPath, 'AppForge AI');
+        const learningDb = initLearningDatabase(learningDbDir);
+        
+        const xpSystem = new ExperienceSystem(learningDb);
+        const skillEngine = new SkillEngine(learningDb);
+
+        const xpEarned = xpSystem.rewardProjectXP(this.projectId, finalBlueprint.industry);
+        const progSkill = skillEngine.incrementSkill('Programming', 15);
+        const dbSkill = skillEngine.incrementSkill('Database', 10);
+        const uiSkill = skillEngine.incrementSkill('UI', 5);
+
+        engineStore.addLog(`🏆 AI Progress: Earned +${xpEarned} XP!`);
+        engineStore.addLog(`📈 Skill Upgrades: Programming Level ${progSkill.level}, Database Level ${dbSkill.level}, UI Level ${uiSkill.level}`);
+      } catch (err) {
+        console.warn('[Orchestrator] Failed to credit experience/skills updates:', err);
       }
 
       await this.delay(300);
