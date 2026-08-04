@@ -7,7 +7,7 @@
 
 import type { IntentResult, IndustryType } from '../../blueprint/schema';
 import { INDUSTRY_STANDARDS, getDomainInsights, type DomainInsight } from './DomainKnowledge';
-import { GapAnalyzer, type GapItem } from '../analyzer/GapAnalyzer';
+import { GapAnalyzer } from '../analyzer/GapAnalyzer';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -38,7 +38,7 @@ export interface PriorityItem {
 export interface ReasoningResult {
   domainInsights: DomainInsight[];
   suggestedFeatures: SuggestedFeature[];
-  gapAnalysis: GapItem[];
+  gapAnalysis: string[];
   architectureDecision: ArchDecision;
   priorityMatrix: PriorityItem[];
   estimatedScreenCount: number;
@@ -56,11 +56,8 @@ export class ReasoningEngine {
     const domainInsights = getDomainInsights(industry, userFeatures);
 
     const gapAnalysis = this.gapAnalyzer.analyze(
-      industry,
       userFeatures,
-      intent.targetUsers,
-      true, // authRequired assumed true
-      userFeatures.some(f => ['billing', 'cart', 'payments', 'fees'].includes(f))
+      industry
     );
 
     const suggestedFeatures = this.buildSuggestions(industry, userFeatures, standard);

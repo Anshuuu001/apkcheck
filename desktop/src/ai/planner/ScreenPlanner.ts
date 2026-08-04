@@ -40,6 +40,36 @@ export class ScreenPlanner {
       } else {
         screen.layout = 'BaseLayout';
       }
+
+      // Generate visual layout coordinates for components (Step 3: UI Planner)
+      let currentY = 24;
+      const elements = screen.components.map((comp) => {
+        let h = 48;
+        if (comp.type === 'Heading' || comp.type === 'Text') {
+          h = 32;
+        } else if (comp.type === 'Card' || comp.type === 'ListItem') {
+          h = 80;
+        } else if (comp.type === 'Button' || comp.type === 'TextField' || comp.type === 'PasswordField') {
+          h = 42;
+        } else if (comp.type === 'Calendar' || comp.type === 'MapView') {
+          h = 140;
+        }
+
+        const element = {
+          type: comp.type,
+          content: comp.label || comp.props.placeholder || comp.type,
+          title: comp.label || comp.type,
+          label: comp.label || comp.type,
+          x: 12,
+          y: currentY,
+          w: 270,
+          h: h
+        };
+        currentY += h + 14; // spacing between element boxes
+        return element;
+      });
+
+      screen.layout_data = JSON.stringify({ elements });
     });
 
     return screens;

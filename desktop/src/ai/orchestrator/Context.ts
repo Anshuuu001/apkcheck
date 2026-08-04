@@ -7,7 +7,8 @@
 import type {
   AppBlueprint, IntentResult, RequirementAnswers,
   ScreenBlueprint, NavigationPlan, DatabasePlan,
-  ApiPlan, BusinessFlow, ThemeTokens, AppPermission
+  ApiPlan, BusinessFlow, ThemeTokens, AppPermission,
+  RequirementDocument, ArchitectureDecision
 } from '../../blueprint/schema';
 
 import { ProjectMemory } from '../memory/ProjectMemory';
@@ -26,6 +27,8 @@ export interface PipelineContextData {
   api?: ApiPlan;
   businessLogic?: BusinessFlow[];
   permissions?: AppPermission[];
+  requirementDocument?: RequirementDocument;
+  architecture?: ArchitectureDecision;
   logs: string[];
 }
 
@@ -138,6 +141,22 @@ export class PipelineContext {
     this.data.permissions = permissions;
   }
 
+  getRequirementDocument(): RequirementDocument | undefined {
+    return this.data.requirementDocument;
+  }
+
+  setRequirementDocument(requirementDocument: RequirementDocument): void {
+    this.data.requirementDocument = requirementDocument;
+  }
+
+  getArchitecture(): ArchitectureDecision | undefined {
+    return this.data.architecture;
+  }
+
+  setArchitecture(architecture: ArchitectureDecision): void {
+    this.data.architecture = architecture;
+  }
+
   getLogs(): string[] {
     return this.data.logs;
   }
@@ -209,7 +228,20 @@ export class PipelineContext {
       businessLogic: businessLogic || [],
       permissions: permissions || [],
       intentResult: intent,
-      requirementAnswers: answers
+      requirementAnswers: answers,
+      requirementDocument: this.data.requirementDocument,
+      architecture: this.data.architecture,
+      notifications: { enabled: true, channels: ['push', 'in-app'], provider: 'firebase', templates: [] },
+      validations: [],
+      assets: [],
+      settings: { defaultLanguage: 'en', supportedLanguages: ['en'], darkModeSupport: true, defaultThemeMode: 'dark', cacheTtlSeconds: 300, sessionTimeoutMinutes: 30, allowGuestMode: false, analyticsEnabled: true, crashReportingEnabled: true, forceUpdateEnabled: false },
+      buildPipeline: { outputDir: 'export/', stages: [] },
+      metadata: {
+        generatedAt: new Date().toISOString(),
+        aiConfidence: 90,
+        buildCount: 0,
+        tags: []
+      }
     };
   }
 }

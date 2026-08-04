@@ -229,7 +229,7 @@ export function buildScreensFromFeatures(
                 { id: generateId('c'), type: 'Heading', label: screenTitle, props: { level: 'h2' } },
                 { id: generateId('c'), type: 'Text', label: `Manage your ${screenTitle} module, views, and workflows here.`, props: {} }
               ] },
-              { id: generateId('c'), type: 'List', label: 'Feature Items List', props: { itemsCount: 3, showChevron: true } }
+              { id: generateId('c'), type: 'ListTile', label: 'Feature Items List', props: { itemsCount: 3, showChevron: true } }
             ] }
           ],
           apiCalls: [`get${normalizedName.charAt(0).toUpperCase() + normalizedName.slice(1)}`]

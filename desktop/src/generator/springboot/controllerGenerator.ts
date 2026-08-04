@@ -2,7 +2,6 @@ import type { DatabaseTable } from '../../blueprint/schema';
 
 export function generateControllerJava(table: DatabaseTable, packagePath: string): string {
   const entityName = table.name.charAt(0).toUpperCase() + table.name.slice(1).replace(/s$/, ''); // User
-  const serviceVarName = `${entityName.toLowerCase()}Service`;
 
   return `
 package ${packagePath}.controller;

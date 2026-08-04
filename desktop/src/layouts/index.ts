@@ -12,7 +12,7 @@ import { ChatLayout } from './ChatLayout';
 import { SocialLayout } from './SocialLayout';
 import { ProfileLayout } from './ProfileLayout';
 import { AuthLayout } from './AuthLayout';
-import { LayoutTemplate } from './types';
+import type { LayoutTemplate } from './types';
 
 export * from './types';
 export {

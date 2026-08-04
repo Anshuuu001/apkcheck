@@ -203,6 +203,7 @@ export interface ScreenBlueprint {
   apiCalls?: string[];         // API endpoint IDs called from this screen
   guards?: string[];           // Auth guards e.g., ["isAuthenticated", "isDoctor"]
   params?: { name: string; type: string }[];  // Route params
+  layout_data?: string;        // Visual element position offsets JSON string
 }
 
 // ─── Navigation Blueprint ────────────────────────────────────────────────────
@@ -546,6 +547,25 @@ export interface IntentResult {
   rawIdea: string;             // Original user input
 }
 
+export interface RequirementDocument {
+  functionalRequirements: string[];
+  nonFunctionalRequirements: string[];
+  userRoles: string[];
+  modules: string[];
+  constraints: string[];
+  businessRules: string[];
+}
+
+export interface ArchitectureDecision {
+  frontendFramework: string;      // e.g., "React Native", "React (Web)"
+  stateManagement: string;        // e.g., "Redux", "Zustand"
+  navigationLibrary: string;      // e.g., "React Navigation", "Expo Router"
+  httpClient: string;             // e.g., "Axios", "Fetch"
+  backendFramework: string;       // e.g., "Spring Boot", "Node Express"
+  authScheme: string;             // e.g., "JWT", "OAuth2"
+  databaseType: string;           // e.g., "MySQL", "PostgreSQL"
+}
+
 // ─── Master AppBlueprint ─────────────────────────────────────────────────────
 
 export interface AppBlueprint {
@@ -582,14 +602,16 @@ export interface AppBlueprint {
   // Source tracking
   intentResult?: IntentResult;
   requirementAnswers?: RequirementAnswers;
+  requirementDocument?: RequirementDocument;
+  architecture?: ArchitectureDecision;
 
   // Extended Blueprint Sections (V1)
-  notifications: NotificationConfig;
-  validations: ValidationRule[];
-  assets: AssetDeclaration[];
-  settings: AppSettings;
-  buildPipeline: BuildPipeline;
-  metadata: ProjectMetadata;
+  notifications?: NotificationConfig;
+  validations?: ValidationRule[];
+  assets?: AssetDeclaration[];
+  settings?: AppSettings;
+  buildPipeline?: BuildPipeline;
+  metadata?: ProjectMetadata;
 }
 
 
@@ -598,8 +620,11 @@ export interface AppBlueprint {
 export type PipelineStage =
   | 'idle'
   | 'intent-analysis'
+  | 'requirement-intelligence'
+  | 'architecture-generation'
   | 'reasoning'
   | 'requirement-interview'
+  | 'ui-planning'
   | 'blueprint-generation'
   | 'component-planning'
   | 'theme-planning'
@@ -610,6 +635,8 @@ export type PipelineStage =
   | 'preview'
   | 'react-native-generation'
   | 'springboot-generation'
+  | 'verification-checks'
+  | 'documentation'
   | 'testing'
   | 'apk-build'
   | 'complete'

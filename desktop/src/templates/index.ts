@@ -43,7 +43,17 @@ const makeStub = (
     api: { baseUrl: '/api/v1', version: 'v1', authScheme: 'jwt' as const, endpoints: [] },
     businessLogic: [],
     permissions: [{ name: 'INTERNET', platform: 'android' as const, reason: 'API calls', required: true }],
-    buildConfig: { minSdkVersion: 24, targetSdkVersion: 34, compileSdkVersion: 34, versionCode: 1, versionName: '1.0.0' },
+    buildPipeline: {
+      outputDir: 'output/app',
+      stages: [],
+      gradleConfig: {
+        minSdkVersion: 24,
+        targetSdkVersion: 34,
+        compileSdkVersion: 34,
+        versionCode: 1,
+        versionName: '1.0.0',
+      }
+    },
   };
 };
 

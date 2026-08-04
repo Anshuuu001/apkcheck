@@ -8,7 +8,8 @@
 import type {
   AppBlueprint, ThemeTokens, NavigationPlan, DatabasePlan,
   ApiPlan, ScreenBlueprint,
-  ColorPalette, Typography, Spacing, BorderRadius, Elevation
+  ColorPalette, Typography, Spacing, BorderRadius, Elevation,
+  BuildPipeline
 } from './schema';
 
 import colorsTokens from '../design-system/colors.json';
@@ -113,13 +114,59 @@ export function parseBlueprint(raw: string | object | null | undefined): AppBlue
     intentResult: parsed.intentResult,
     requirementAnswers: parsed.requirementAnswers,
 
-    buildConfig: parsed.buildConfig || {
-      minSdkVersion: 24,
-      targetSdkVersion: 34,
-      compileSdkVersion: 34,
-      versionCode: 1,
-      versionName: '1.0.0',
+    notifications: parsed.notifications || { enabled: true, channels: [], provider: 'none', templates: [] },
+    validations: Array.isArray(parsed.validations) ? parsed.validations : [],
+    assets: Array.isArray(parsed.assets) ? parsed.assets : [],
+    settings: parsed.settings || {
+      defaultLanguage: 'en',
+      supportedLanguages: ['en'],
+      darkModeSupport: true,
+      defaultThemeMode: 'system',
+      cacheTtlSeconds: 300,
+      sessionTimeoutMinutes: 30,
+      allowGuestMode: false,
+      analyticsEnabled: true,
+      crashReportingEnabled: true,
+      forceUpdateEnabled: false,
     },
+    buildPipeline: parseBuildPipeline(parsed.buildPipeline || parsed.buildConfig),
+    metadata: parsed.metadata || {
+      generatedAt: now,
+      buildCount: 0,
+      aiConfidence: 0,
+      tags: [],
+    },
+  };
+}
+
+function parseBuildPipeline(raw: any): BuildPipeline {
+  if (!raw) {
+    return {
+      outputDir: 'output/app',
+      stages: [],
+      gradleConfig: {
+        minSdkVersion: 24,
+        targetSdkVersion: 34,
+        compileSdkVersion: 34,
+        versionCode: 1,
+        versionName: '1.0.0',
+      }
+    };
+  }
+  
+  const gradleConfig = raw.gradleConfig || {
+    minSdkVersion: raw.minSdkVersion !== undefined ? raw.minSdkVersion : 24,
+    targetSdkVersion: raw.targetSdkVersion !== undefined ? raw.targetSdkVersion : 34,
+    compileSdkVersion: raw.compileSdkVersion !== undefined ? raw.compileSdkVersion : 34,
+    versionCode: raw.versionCode !== undefined ? raw.versionCode : 1,
+    versionName: raw.versionName || '1.0.0',
+  };
+
+  return {
+    outputDir: raw.outputDir || 'output/app',
+    stages: Array.isArray(raw.stages) ? raw.stages : [],
+    signingConfig: raw.signingConfig,
+    gradleConfig,
   };
 }
 

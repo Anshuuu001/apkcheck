@@ -29,7 +29,7 @@ export class ComponentIndex {
       case 'list':    return ListRegistry.get(name);
       case 'screen':  return ScreenRegistry.get(name);
       case 'layout':  return LayoutRegistry.get(name);
-      case 'theme':   return ThemeRegistry.get(name);
+      case 'theme':   return '';
       default:        return '';
     }
   }

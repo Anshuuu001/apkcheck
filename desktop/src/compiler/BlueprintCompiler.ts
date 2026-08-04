@@ -22,11 +22,11 @@ export class BlueprintCompiler {
   compile(blueprint: AppBlueprint): CompilationOutput {
     console.log(`[BlueprintCompiler] Compiling project "${blueprint.name}"...`);
 
-    const reactNativeFiles = ReactCompiler.compile(blueprint.screens);
-    const springBootFiles = SpringCompiler.compile(blueprint.api);
-    const sqlSchema = SQLCompiler.compile(blueprint.database);
+    const reactNativeFiles = ReactCompiler.compile(blueprint);
+    const springBootFiles = SpringCompiler.compile(blueprint);
+    const sqlSchema = Object.values(SQLCompiler.compile(blueprint)).join('\n\n');
     const themeConfig = ThemeCompiler.compile(blueprint.theme);
-    const navigationConfig = NavigationCompiler.compile(blueprint.navigation);
+    const navigationConfig = Object.values(NavigationCompiler.compile(blueprint)).join('\n\n');
     const assetConfig = AssetCompiler.compile(blueprint.icon);
 
     console.log(`[BlueprintCompiler] Compilation successful. Compiled ${Object.keys(reactNativeFiles).length} React components and ${Object.keys(springBootFiles).length} Spring routes.`);

@@ -6,7 +6,7 @@ export class AssetGenerator {
 
     files['src/assets/manifest.json'] = JSON.stringify({
       appName: blueprint.name,
-      platform: blueprint.buildConfig?.targetSdkVersion ? 'android' : 'universal',
+      platform: blueprint.buildPipeline?.gradleConfig?.targetSdkVersion ? 'android' : 'universal',
       fonts: [
         { name: 'Inter-Regular', style: 'normal', weight: 400 },
         { name: 'Inter-SemiBold', style: 'normal', weight: 600 },

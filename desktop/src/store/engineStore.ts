@@ -24,6 +24,18 @@ export const STAGE_META: Record<PipelineStage, { name: string; description: stri
     icon: '🧠',
     weight: 10,
   },
+  'requirement-intelligence': {
+    name: 'Requirement Intelligence',
+    description: 'Analyzing constraints and creating structured requirements...',
+    icon: '📋',
+    weight: 10,
+  },
+  'architecture-generation': {
+    name: 'Architecture Generator',
+    description: 'Planning design stack and determining framework layers...',
+    icon: '🏗️',
+    weight: 10,
+  },
   reasoning: {
     name: 'AI Reasoning Engine',
     description: 'Performing domain, competitive, and architectural reasoning...',
@@ -35,6 +47,12 @@ export const STAGE_META: Record<PipelineStage, { name: string; description: stri
     description: 'Asking smart follow-up questions...',
     icon: '💬',
     weight: 5,
+  },
+  'ui-planning': {
+    name: 'UI Planner',
+    description: 'Constructing screen flow wireframes and visual trees...',
+    icon: '📱',
+    weight: 15,
   },
   'blueprint-generation': {
     name: 'Blueprint Engine',
@@ -96,6 +114,18 @@ export const STAGE_META: Record<PipelineStage, { name: string; description: stri
     icon: '🍃',
     weight: 10,
   },
+  'verification-checks': {
+    name: 'Verification Engine',
+    description: 'Performing post-compile safety verification checks...',
+    icon: '🔍',
+    weight: 10,
+  },
+  documentation: {
+    name: 'Documentation Generator',
+    description: 'Compiling installation guide, README, and API specs...',
+    icon: '📝',
+    weight: 10,
+  },
   testing: {
     name: 'Testing Simulator',
     description: 'Testing navigation schemas on local emulators...',
@@ -126,8 +156,11 @@ export const STAGE_META: Record<PipelineStage, { name: string; description: stri
 
 export const ORDERED_STAGES: PipelineStage[] = [
   'intent-analysis',
+  'requirement-intelligence',
+  'architecture-generation',
   'reasoning',
   'requirement-interview',
+  'ui-planning',
   'blueprint-generation',
   'component-planning',
   'theme-planning',
@@ -138,6 +171,8 @@ export const ORDERED_STAGES: PipelineStage[] = [
   'preview',
   'react-native-generation',
   'springboot-generation',
+  'verification-checks',
+  'documentation',
   'testing',
   'apk-build',
   'complete',

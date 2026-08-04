@@ -1,7 +1,7 @@
 import type { AppBlueprint } from '../../blueprint/schema';
 
 export class ServiceGenerator {
-  static generate(blueprint: AppBlueprint): Record<string, string> {
+  static generate(_blueprint: AppBlueprint): Record<string, string> {
     const files: Record<string, string> = {};
 
     files['src/services/storageService.ts'] = `import { Platform } from 'react-native';

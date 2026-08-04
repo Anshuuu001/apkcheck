@@ -12,8 +12,8 @@ export function generateScreenRN(screen: ScreenBlueprint): string {
   // Parse components code
   const componentsJSX = screen.components.map(c => {
     // Basic import detection based on components
-    if (c.type === 'List') componentImports.add('FlatList');
-    if (c.type === 'Chat') {
+    if (c.type === 'ListTile' || c.type === 'ListItem') componentImports.add('FlatList');
+    if (c.type === 'ChatBubble' || c.type === 'ChatInput' || c.type === 'MessageList') {
       componentImports.add('TextInput');
       componentImports.add('ScrollView');
     }

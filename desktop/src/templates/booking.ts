@@ -6,9 +6,15 @@ const theme = generateTheme('Healthcare', 'dark');
 
 export const BOOKING_TEMPLATE: AppBlueprint = {
   id: generateBlueprintId(),
-  projectId: 0,
+  version: '1.0.0',
+  schemaVersion: '1',
   name: 'Calendar & Bookings',
+  packageName: 'com.appforge.booking',
   description: 'Online scheduler and slot booking appointments calendar system',
+  industry: 'Healthcare',
+  appType: 'Booking App',
+  users: ['User'],
+  authRequired: true,
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
   theme,

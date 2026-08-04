@@ -3,6 +3,7 @@ import fs from 'fs';
 import { generateReactNativeProject } from './react-native/appGenerator';
 import { generateSpringBootProject } from './springboot/appGenerator';
 import { exportBlueprintAsSQL, exportBlueprintAsMarkdown } from '../blueprint/exporter';
+import { BlueprintCompiler } from '../compiler/BlueprintCompiler';
 
 export class CodeGenerator {
   
@@ -1324,40 +1325,78 @@ public class AdminController {
 
     // ── Single Source of Truth App Generators Alignment ────────────────────
     
-    // 1. React Native mobile frontend generation
     try {
-      const rnFiles = generateReactNativeProject(blueprintObj);
-      rnFiles.forEach(file => {
-        writeFile(path.join('frontend-rn', file.path), file.content);
-      });
-    } catch (e) {
-      console.error('[CodeGenerator] React Native generation failed:', e);
-    }
+      const compiler = new BlueprintCompiler();
+      const compiled = compiler.compile(blueprintObj);
+      
+      // Write Compiled React Native files
+      if (compiled.reactNativeFiles) {
+        Object.entries(compiled.reactNativeFiles).forEach(([fileRelativePath, content]) => {
+          writeFile(path.join('frontend-rn', fileRelativePath), content);
+        });
+      }
 
-    // 2. Spring Boot backend service generation
-    try {
-      const sbFiles = generateSpringBootProject(blueprintObj);
-      sbFiles.forEach(file => {
-        writeFile(path.join('backend-sb', file.path), file.content);
-      });
-    } catch (e) {
-      console.error('[CodeGenerator] Spring Boot generation failed:', e);
-    }
+      // Write Compiled Spring Boot files
+      if (compiled.springBootFiles) {
+        Object.entries(compiled.springBootFiles).forEach(([fileRelativePath, content]) => {
+          writeFile(path.join('backend-sb', fileRelativePath), content);
+        });
+      }
 
-    // 3. Database SQL script schema generation
-    try {
-      const dbSql = exportBlueprintAsSQL(blueprintObj);
-      writeFile('database/schema.sql', dbSql);
-    } catch (e) {
-      console.error('[CodeGenerator] SQL export failed:', e);
-    }
+      // Write SQL Schema
+      if (compiled.sqlSchema) {
+        writeFile('database/schema.sql', compiled.sqlSchema);
+      }
 
-    // 4. Blueprint Specification Markdown documentation generation
-    try {
+      // Write Navigation, theme, asset config logs
+      if (compiled.navigationConfig) {
+        writeFile('database/navigation_compiled.sql', compiled.navigationConfig);
+      }
+      if (compiled.themeConfig) {
+        writeFile('src/assets/theme_tokens.json', compiled.themeConfig);
+      }
+      
       const mdDoc = exportBlueprintAsMarkdown(blueprintObj);
       writeFile('docs/BLUEPRINT.md', mdDoc);
-    } catch (e) {
-      console.error('[CodeGenerator] Markdown doc export failed:', e);
+
+    } catch (compilerError) {
+      console.error('[CodeGenerator] Compiler failed. Falling back to default generation:', compilerError);
+      
+      // Fallback 1. React Native mobile frontend generation
+      try {
+        const rnFiles = generateReactNativeProject(blueprintObj);
+        rnFiles.forEach(file => {
+          writeFile(path.join('frontend-rn', file.path), file.content);
+        });
+      } catch (e) {
+        console.error('[CodeGenerator] React Native generation failed:', e);
+      }
+
+      // Fallback 2. Spring Boot backend service generation
+      try {
+        const sbFiles = generateSpringBootProject(blueprintObj);
+        sbFiles.forEach(file => {
+          writeFile(path.join('backend-sb', file.path), file.content);
+        });
+      } catch (e) {
+        console.error('[CodeGenerator] Spring Boot generation failed:', e);
+      }
+
+      // Fallback 3. Database SQL script schema generation
+      try {
+        const dbSql = exportBlueprintAsSQL(blueprintObj);
+        writeFile('database/schema.sql', dbSql);
+      } catch (e) {
+        console.error('[CodeGenerator] SQL export failed:', e);
+      }
+
+      // Fallback 4. Blueprint Specification Markdown documentation generation
+      try {
+        const mdDoc = exportBlueprintAsMarkdown(blueprintObj);
+        writeFile('docs/BLUEPRINT.md', mdDoc);
+      } catch (e) {
+        console.error('[CodeGenerator] Markdown doc export failed:', e);
+      }
     }
 
     return generatedFiles;

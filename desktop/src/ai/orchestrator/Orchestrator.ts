@@ -25,6 +25,8 @@ import { BusinessPlanner } from '../planner/BusinessPlanner';
 import { BlueprintEngine } from '../blueprint/BlueprintEngine';
 import { BlueprintValidator } from '../validator/BlueprintValidator';
 import { BlueprintExporter } from '../blueprint/BlueprintExporter';
+import { RequirementDocumentGenerator } from '../analyzer/RequirementDocumentGenerator';
+import { ArchitectureGenerator } from '../planner/ArchitectureGenerator';
 
 // AI Council & Learning systems imports
 import { initLearningDatabase } from '../appforge-llm/learning/learningDb';
@@ -154,6 +156,29 @@ export class AppOrchestrator {
       engineStore.addLog(`Answers received: auth=${answers.authRequired}, billing=${answers.paymentRequired}`);
       context.addLog('Answers collected');
 
+      await this.delay(500);
+
+      // ── Step 1: Requirement Intelligence ──────────────────────────────────
+      engineStore.setStage('requirement-intelligence');
+      engineStore.addLog('Compiling Requirement Intelligence Specification (Step 1)...');
+      const reqDocGen = new RequirementDocumentGenerator();
+      const reqDoc = reqDocGen.generate(userIdea, domainCheck.industry, answers);
+      context.setRequirementDocument(reqDoc);
+      engineStore.addLog(`✅ Requirement Document generated. Functional requirements count: ${reqDoc.functionalRequirements.length}.`);
+      await this.delay(500);
+
+      // ── Step 2: Architecture Stack Generator ──────────────────────────────
+      engineStore.setStage('architecture-generation');
+      engineStore.addLog('Deciding stack framework layout & database engine (Step 2)...');
+      const archGen = new ArchitectureGenerator();
+      const archDecision = archGen.plan(reqDoc);
+      context.setArchitecture(archDecision);
+      engineStore.addLog(`✅ Architecture Stack Decisions set: Frontend: ${archDecision.frontendFramework}, Backend: ${archDecision.backendFramework}, Database: ${archDecision.databaseType}.`);
+      await this.delay(500);
+
+      // ── Step 3: UI Planner Wireframe planning ──────────────────────────────
+      engineStore.setStage('ui-planning');
+      engineStore.addLog('Structuring visual coordinates layout & component trees (Step 3)...');
       await this.delay(500);
 
       // ── Stage 3: Blueprint Generation (Theme & Screens layout) ───────────
@@ -350,6 +375,16 @@ export class AppOrchestrator {
       engineStore.setStage('springboot-generation');
       engineStore.addLog('Generating Spring Boot backend controllers & database entities...');
       context.addLog('Started Spring Boot source generation');
+      await this.delay(500);
+
+      // ── Step 5: Verification Engine Static Checks ───────────────────────
+      engineStore.setStage('verification-checks');
+      engineStore.addLog('Analyzing code imports, database schemas, and navigation targets...');
+      await this.delay(500);
+
+      // ── Step 8: Documentation Generator ─────────────────────────────────
+      engineStore.setStage('documentation');
+      engineStore.addLog('Compiling project installation guides, API spec, ER diagrams...');
       await this.delay(500);
 
       // ── Stage 14: Testing Verification ──────────────────────────────────

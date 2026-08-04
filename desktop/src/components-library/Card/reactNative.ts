@@ -2,7 +2,7 @@ import type { CardProperties } from './properties';
 
 export function generateCardReactNative(
   props: Partial<CardProperties>,
-  childrenContent: string,
+  childrenContent?: string,
   themeStylesVar = 'theme'
 ): string {
   const elevation = props.elevation || 'md';
